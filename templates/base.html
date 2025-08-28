@@ -1,24 +1,32 @@
-
 <!doctype html>
 <html lang="it">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>NoventaCommsApp</title>
+  <title>CommsApp</title>
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
-  <header class="container">
-    <h1>NoventaCommsApp</h1>
-    <p class="sub">Comune di {{ city }} — Sindaco {{ mayor }}</p>
+  <header class="container header">
+    <div class="brand">
+      <div class="logo">✦</div>
+      <div>
+        <h1>CommsApp</h1>
+        <p class="sub">Comune di {{ city }} — {{ mayor }}</p>
+      </div>
+    </div>
+    <nav>
+      <a href="/" class="navlink">Home</a>
+      <a href="/profile" class="navlink">Profilo</a>
+    </nav>
   </header>
 
   <main class="container">
     {% block content %}{% endblock %}
   </main>
 
-  <footer class="container muted">
-    <small>Bozza MVP per la produzione di contenuti istituzionali e autopost. Verificare sempre prima della pubblicazione.</small>
+  <footer class="container muted footer">
+    <small>Bozza MVP. Verifica sempre prima della pubblicazione.</small>
   </footer>
 </body>
 </html>
