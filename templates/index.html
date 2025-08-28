@@ -1,0 +1,96 @@
+
+{% extends "base.html" %}
+{% block content %}
+
+{% if msg %}<div class="alert">{{ msg }}</div>{% endif %}
+
+<section class="card">
+  <h2>1) Carica fonti e foto</h2>
+  <form action="/generate" method="post" enctype="multipart/form-data">
+    <label>Documenti/articoli (PDF/DOCX/TXT, multipli):</label>
+    <input type="file" name="source_files" multiple />
+
+    <label>Foto per i social (opzionale):</label>
+    <input type="file" name="photo" accept="image/*" />
+
+    <div class="grid">
+      <div>
+        <label>Pubblico principale</label>
+        <input type="text" name="audience" value="cittadini" />
+      </div>
+      <div>
+        <label>Temi/parole chiave (facoltativo)</label>
+        <input type="text" name="topics" placeholder="es. lavori pubblici, scuola, viabilità" />
+      </div>
+    </div>
+
+    <label class="row">
+      <input type="checkbox" name="add_hashtags" checked /> Aggiungi hashtag pertinenti
+    </label>
+    <label class="row">
+      <input type="checkbox" name="add_call_to_action" checked /> Aggiungi invito all'azione (CTA)
+    </label>
+
+    <button type="submit">Genera contenuti</button>
+  </form>
+</section>
+
+{% if generated %}
+<section class="card">
+  <h2>2) Anteprima e modifica</h2>
+  {% if photo_url %}
+    <figure class="photo">
+      <img src="{{ photo_url }}" alt="Foto caricata" />
+      <figcaption>Foto che verrà usata per i post</figcaption>
+    </figure>
+  {% endif %}
+
+  <form action="/post" method="post">
+    {% if photo_filename %}
+      <input type="hidden" name="photo_filename" value="{{ photo_filename }}" />
+    {% endif %}
+
+    <label>Comunicato stampa</label>
+    <textarea name="press_release" rows="14">{{ generated.press_release }}</textarea>
+
+    <label>Testo per sito istituzionale</label>
+    <textarea name="website_article" rows="12">{{ generated.website_article }}</textarea>
+
+    <div class="grid">
+      <div>
+        <label>Facebook/Instagram</label>
+        <textarea name="social_fb_ig" rows="8">{{ generated.social_fb_ig }}</textarea>
+      </div>
+      <div>
+        <label>LinkedIn</label>
+        <textarea name="social_li" rows="8">{{ generated.social_li }}</textarea>
+      </div>
+    </div>
+
+    <label>X (Twitter)</label>
+    <textarea name="social_x" rows="4">{{ generated.social_x }}</textarea>
+
+    <details>
+      <summary>Consigli di stile</summary>
+      <ul>
+        <li>Mantieni la prima frase chiara: <strong>cosa</strong>, <strong>quando</strong>, <strong>per chi</strong>.</li>
+        <li>Evita sovrapposizioni tra comunicato e sito: il sito è più operativo.</li>
+        <li>Social: chiusura con invito pratico (orari, link ufficiali).</li>
+      </ul>
+    </details>
+
+    <h3>3) Pubblica (opzionale)</h3>
+    <p class="muted">Attiva solo i canali configurati con token. Se non configurati, il testo non verrà pubblicato.</p>
+    <div class="grid">
+      <label class="row"><input type="checkbox" name="target_fb" /> Pubblica su Facebook (Pagina)</label>
+      <label class="row"><input type="checkbox" name="target_ig" /> Pubblica su Instagram (Business)</label>
+      <label class="row"><input type="checkbox" name="target_li" /> Pubblica su LinkedIn</label>
+      <label class="row"><input type="checkbox" name="target_x" /> Pubblica su X</label>
+    </div>
+
+    <button type="submit">Pubblica ora</button>
+  </form>
+</section>
+{% endif %}
+
+{% endblock %}
