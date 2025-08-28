@@ -55,56 +55,73 @@ async def generate(
     add_hashtags: bool = Form(default=True),
     add_call_to_action: bool = Form(default=True),
 ):
-    # Save source files
-    saved_paths = []
-    for f in source_files:
-        if not f.filename:
-            continue
-        safe_name = f"{uuid.uuid4().hex}_{Path(f.filename).name}"
-        out = UPLOAD_DIR / safe_name
-        with out.open("wb") as w:
-            w.write(await f.read())
-        saved_paths.append(str(out))
+    try:
+        # Save source files
+        saved_paths = []
+        for f in source_files:
+            if not f.filename:
+                continue
+            safe_name = f"{uuid.uuid4().hex}_{Path(f.filename).name}"
+            out = UPLOAD_DIR / safe_name
+            with out.open("wb") as w:
+                w.write(await f.read())
+            saved_paths.append(str(out))
 
-    # Save photo (if present)
-    photo_url = None
-    photo_filename = None
-    if photo and photo.filename:
-        safe_name = f"{uuid.uuid4().hex}_{Path(photo.filename).name}"
-        out = UPLOAD_DIR / safe_name
-        with out.open("wb") as w:
-            w.write(await photo.read())
-        photo_filename = safe_name
-        photo_url = f"{BASE_PUBLIC_URL}/uploads/{safe_name}"
+        # Save photo (if present)
+        photo_url = None
+        photo_filename = None
+        if photo and photo.filename:
+            safe_name = f"{uuid.uuid4().hex}_{Path(photo.filename).name}"
+            out = UPLOAD_DIR / safe_name
+            with out.open("wb") as w:
+                w.write(await photo.read())
+            photo_filename = safe_name
+            photo_url = f"{os.getenv('BASE_PUBLIC_URL', 'http://localhost:8000')}/uploads/{safe_name}"
 
-    # Extract text
-    source_text = extract_texts_from_files(saved_paths)
+        # Extract
+        source_text = extract_texts_from_files(saved_paths)
 
-    # Generate outputs
-    outputs = generate_outputs(
-        source_text=source_text,
-        city=CITY_NAME,
-        mayor=MAYOR_NAME,
-        audience=audience,
-        topics=topics,
-        photo_url=photo_url,
-        add_hashtags=add_hashtags,
-        add_call_to_action=add_call_to_action,
-    )
+        # Generate
+        outputs = generate_outputs(
+            source_text=source_text,
+            city=os.getenv("CITY_NAME", "Noventa di Piave"),
+            mayor=os.getenv("MAYOR_NAME", "Claudio Marian"),
+            audience=audience,
+            topics=topics,
+            photo_url=photo_url,
+            add_hashtags=add_hashtags,
+            add_call_to_action=add_call_to_action,
+        )
 
-    return templates.TemplateResponse(
-        "index.html",
-        {
-            "request": request,
-            "generated": outputs,
-            "photo_url": photo_url,
-            "photo_filename": photo_filename,
-            "city": CITY_NAME,
-            "mayor": MAYOR_NAME,
-            "msg": "Contenuti generati. Puoi modificarli e (opzionalmente) pubblicare.",
-        },
-    )
-
+        return templates.TemplateResponse(
+            "index.html",
+            {
+                "request": request,
+                "generated": outputs,
+                "photo_url": photo_url,
+                "photo_filename": photo_filename,
+                "city": os.getenv("CITY_NAME", "Noventa di Piave"),
+                "mayor": os.getenv("MAYOR_NAME", "Claudio Marian"),
+                "msg": "Contenuti generati. Puoi modificarli e (opzionalmente) pubblicare.",
+            },
+        )
+    except Exception as e:
+        # Mostra il messaggio di errore a schermo e manda dettagli nei log
+        import traceback, sys
+        traceback.print_exc(file=sys.stderr)
+        return templates.TemplateResponse(
+            "index.html",
+            {
+                "request": request,
+                "generated": None,
+                "photo_url": None,
+                "photo_filename": None,
+                "city": os.getenv("CITY_NAME", "Noventa di Piave"),
+                "mayor": os.getenv("MAYOR_NAME", "Claudio Marian"),
+                "msg": f"Errore durante la generazione: {e}",
+            },
+            status_code=500,
+        )
 
 @app.post("/post")
 async def post(
