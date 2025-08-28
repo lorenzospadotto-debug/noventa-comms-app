@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <h2>Profilo</h2>
+  <form action="/profile" method="post">
+    <div class="grid">
+      <div>
+        <label>Nome visualizzato</label>
+        <input type="text" name="display_name" value="{{ settings.display_name }}" required />
+      </div>
+      <div>
+        <label>Ruolo (es. Sindaco, Consigliere)</label>
+        <input type="text" name="role" value="{{ settings.role }}" required />
+      </div>
+    </div>
+
+    <div class="grid">
+      <div>
+        <label>Comune/Ente</label>
+        <input type="text" name="city_name" value="{{ settings.city_name }}" required />
+      </div>
+      <div>
+        <label>Tono di scrittura</label>
+        <select name="tone">
+          <option value="istituzionale" {{ 'selected' if settings.tone=='istituzionale' else '' }}>Istituzionale</option>
+          <option value="istituzionale_vicino" {{ 'selected' if settings.tone=='istituzionale_vicino' else '' }}>Istituzionale ma vicino</option>
+          <option value="colloquiale" {{ 'selected' if settings.tone=='colloquiale' else '' }}>Colloquiale</option>
+          <option value="tecnico" {{ 'selected' if settings.tone=='tecnico' else '' }}>Tecnico</option>
+        </select>
+      </div>
+    </div>
+
+    <label class="row">
+      <input type="checkbox" name="use_emojis" {{ 'checked' if settings.use_emojis else '' }} />
+      Usa emoji nei post social (max 1–2, mai nel comunicato)
+    </label>
+
+    <button type="submit">Salva profilo</button>
+  </form>
+</section>
+{% endblock %}
