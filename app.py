@@ -1,6 +1,6 @@
-
 import os
 import uuid
+import json
 from pathlib import Path
 from typing import List, Optional
 
@@ -19,15 +19,33 @@ load_dotenv()
 
 APP_DIR = Path(__file__).parent
 UPLOAD_DIR = APP_DIR / "uploads"
+SETTINGS_PATH = APP_DIR / "settings.json"
 UPLOAD_DIR.mkdir(exist_ok=True)
 
-app = FastAPI(title="NoventaCommsApp")
+DEFAULT_SETTINGS = {
+    "display_name": os.getenv("MAYOR_NAME", "Claudio Marian"),
+    "role": "Sindaco",
+    "tone": "istituzionale_vicino",  # istituzionale | istituzionale_vicino | colloquiale | tecnico
+    "use_emojis": False,
+    "city_name": os.getenv("CITY_NAME", "Noventa di Piave"),
+}
+
+def load_settings():
+    if SETTINGS_PATH.exists():
+        try:
+            return json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+        except Exception:
+            return DEFAULT_SETTINGS.copy()
+    return DEFAULT_SETTINGS.copy()
+
+def save_settings(data: dict):
+    SETTINGS_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+app = FastAPI(title="CommsApp")
 app.mount("/static", StaticFiles(directory=str(APP_DIR / "static")), name="static")
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
-CITY_NAME = os.getenv("CITY_NAME", "Noventa di Piave")
-MAYOR_NAME = os.getenv("MAYOR_NAME", "Claudio Marian")
 BASE_PUBLIC_URL = os.getenv("BASE_PUBLIC_URL", "http://localhost:8000")
 
 # Social env
@@ -42,7 +60,44 @@ X_USER_ID = os.getenv("X_USER_ID")
 
 @app.get("/")
 async def home(request: Request, msg: Optional[str] = None):
-    return templates.TemplateResponse("index.html", {"request": request, "msg": msg, "city": CITY_NAME, "mayor": MAYOR_NAME})
+    st = load_settings()
+    return templates.TemplateResponse("index.html", {
+        "request": request,
+        "msg": msg,
+        "city": st.get("city_name"),
+        "mayor": st.get("display_name"),
+        "settings": st,
+    })
+
+
+@app.get("/profile")
+async def profile_get(request: Request):
+    st = load_settings()
+    return templates.TemplateResponse("profile.html", {
+        "request": request,
+        "settings": st,
+        "city": st.get("city_name"),
+        "mayor": st.get("display_name"),
+    })
+
+
+@app.post("/profile")
+async def profile_post(
+    request: Request,
+    display_name: str = Form(...),
+    role: str = Form(...),
+    tone: str = Form(...),
+    use_emojis: Optional[str] = Form(None),
+    city_name: str = Form(...),
+):
+    st = load_settings()
+    st["display_name"] = display_name.strip() or st["display_name"]
+    st["role"] = role.strip() or st["role"]
+    st["tone"] = tone
+    st["use_emojis"] = bool(use_emojis)  # checkbox: 'on' or None
+    st["city_name"] = city_name.strip() or st["city_name"]
+    save_settings(st)
+    return RedirectResponse(url="/?msg=Profilo%20salvato", status_code=303)
 
 
 @app.post("/generate")
@@ -56,6 +111,7 @@ async def generate(
     add_call_to_action: bool = Form(default=True),
 ):
     try:
+        st = load_settings()
         # Save source files
         saved_paths = []
         for f in source_files:
@@ -76,21 +132,23 @@ async def generate(
             with out.open("wb") as w:
                 w.write(await photo.read())
             photo_filename = safe_name
-            photo_url = f"{os.getenv('BASE_PUBLIC_URL', 'http://localhost:8000')}/uploads/{safe_name}"
+            photo_url = f"{BASE_PUBLIC_URL}/uploads/{safe_name}"
 
-        # Extract
+        # Extract text
         source_text = extract_texts_from_files(saved_paths)
 
-        # Generate
+        # Generate outputs
         outputs = generate_outputs(
             source_text=source_text,
-            city=os.getenv("CITY_NAME", "Noventa di Piave"),
-            mayor=os.getenv("MAYOR_NAME", "Claudio Marian"),
+            city=st.get("city_name"),
+            mayor=f'{st.get("display_name")} ({st.get("role")})',
             audience=audience,
             topics=topics,
             photo_url=photo_url,
             add_hashtags=add_hashtags,
             add_call_to_action=add_call_to_action,
+            tone=st.get("tone", "istituzionale_vicino"),
+            use_emojis=st.get("use_emojis", False),
         )
 
         return templates.TemplateResponse(
@@ -100,15 +158,16 @@ async def generate(
                 "generated": outputs,
                 "photo_url": photo_url,
                 "photo_filename": photo_filename,
-                "city": os.getenv("CITY_NAME", "Noventa di Piave"),
-                "mayor": os.getenv("MAYOR_NAME", "Claudio Marian"),
+                "city": st.get("city_name"),
+                "mayor": st.get("display_name"),
+                "settings": st,
                 "msg": "Contenuti generati. Puoi modificarli e (opzionalmente) pubblicare.",
             },
         )
     except Exception as e:
-        # Mostra il messaggio di errore a schermo e manda dettagli nei log
         import traceback, sys
         traceback.print_exc(file=sys.stderr)
+        st = load_settings()
         return templates.TemplateResponse(
             "index.html",
             {
@@ -116,12 +175,14 @@ async def generate(
                 "generated": None,
                 "photo_url": None,
                 "photo_filename": None,
-                "city": os.getenv("CITY_NAME", "Noventa di Piave"),
-                "mayor": os.getenv("MAYOR_NAME", "Claudio Marian"),
+                "city": st.get("city_name"),
+                "mayor": st.get("display_name"),
+                "settings": st,
                 "msg": f"Errore durante la generazione: {e}",
             },
             status_code=500,
         )
+
 
 @app.post("/post")
 async def post(
@@ -137,6 +198,7 @@ async def post(
     social_x: str = Form(default=""),
     photo_filename: Optional[str] = Form(default=None),
 ):
+    st = load_settings()
     results = []
     photo_url = f"{BASE_PUBLIC_URL}/uploads/{photo_filename}" if photo_filename else None
 
@@ -177,3 +239,4 @@ async def post(
 
     msg = "; ".join([f"{name}: {'OK' if ok else 'ERRORE'}" for name, ok, _ in results]) or "Nessun canale selezionato o token mancanti."
     return RedirectResponse(url=f"/?msg={msg}", status_code=303)
+
