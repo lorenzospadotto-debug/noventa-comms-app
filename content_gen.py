@@ -1,4 +1,3 @@
-
 import os
 from typing import List, Optional
 
@@ -51,25 +50,44 @@ def extract_texts_from_files(paths: List[str]) -> str:
     return merged[:60000]  # prudential limit
 
 
-def _prompt(city: str, mayor: str, audience: str, topics: str, source_text: str, photo_url: Optional[str], add_hashtags: bool, add_call_to_action: bool) -> str:
-    return f"""
-Sei l'ufficio comunicazione del Comune di {city}. Scrivi in italiano con tono istituzionale ma vicino alle persone. Il Sindaco è {mayor}.
+def _tone_instruction(tone: str, use_emojis: bool) -> str:
+    mapping = {
+        "istituzionale": "Tono istituzionale, formale, sobrio.",
+        "istituzionale_vicino": "Tono istituzionale ma vicino alle persone, chiaro e concreto.",
+        "colloquiale": "Tono colloquiale, amichevole ma rispettoso del ruolo.",
+        "tecnico": "Tono tecnico e preciso, ma comprensibile ai non addetti.",
+    }
+    base = mapping.get(tone, mapping["istituzionale_vicino"])
+    emoji_note = "Non usare emoticon o emoji." if not use_emojis else "Puoi usare 1-2 emoji pertinenti nei post social (mai nel comunicato)."
+    return f"{base} {emoji_note}"
 
-Contesto da documenti/articoli (usa solo se rilevante, evita ripetizioni):\n\n{source_text}\n\nTemi aggiuntivi richiesti: {topics or '—'}\nPubblico principale: {audience}
+
+def _prompt(city: str, mayor: str, audience: str, topics: str, source_text: str, photo_url: Optional[str], add_hashtags: bool, add_call_to_action: bool, tone: str, use_emojis: bool) -> str:
+    return f"""
+Sei l'ufficio comunicazione del Comune di {city}. Scrivi in italiano. Il portavoce è {mayor}.
+
+**Istruzioni di stile**: {_tone_instruction(tone, use_emojis)}
+
+Contesto da documenti/articoli (usa solo se rilevante, evita ripetizioni):
+
+{source_text}
+
+Temi aggiuntivi richiesti: {topics or '—'}
+Pubblico principale: {audience}
 Foto allegata: {photo_url or 'no'}
 
 Produci:
-1) COMUNICATO_STAMPA (600-900 parole), con titolo, occhiello, corpo, citazione del Sindaco.
-2) SITO_ISTITUZIONALE (400-700 parole), con H2/H3, punti elenco operativi se utile.
-3) SOCIAL_FB_IG (max 900 caratteri), tono empatico ma sobrio{ ' + 2-4 hashtag pertinenti' if add_hashtags else ''}{ ' + chiusa con invito/CTA (date, link, partecipazione)' if add_call_to_action else ''}.
+1) COMUNICATO_STAMPA (600-900 parole), con titolo, occhiello, corpo, citazioni del portavoce.
+2) SITO_ISTITUZIONALE (400-700 parole), con H2/H3, punti elenco operativi ove utile.
+3) SOCIAL_FB_IG (max 900 caratteri), tono coerente allo stile{ ' + 2-4 hashtag pertinenti' if add_hashtags else ''}{ ' + chiusa con invito/CTA (date, link, partecipazione)' if add_call_to_action else ''}.
 4) SOCIAL_LI (max 700 caratteri), più istituzionale, adatto a una pagina comunale.
 5) SOCIAL_X (max 280 caratteri), incisivo e chiaro.
 
 Regole:
 - Evita tecnicismi non necessari; spiega con semplicità.
-- Niente promesse non verificate.
+- Nessuna promessa non verificata.
 - Mantieni coerenza con il ruolo istituzionale.
-- Inserisci eventuali riferimenti temporali/concreti se presenti nel contesto.
+- Inserisci riferimenti temporali/concreti se presenti nel contesto.
 - Formatta ciascuna sezione iniziando con >>>NOME_SEZIONE<<< su una riga.
 """
 
@@ -83,8 +101,10 @@ def generate_outputs(
     photo_url: Optional[str],
     add_hashtags: bool,
     add_call_to_action: bool,
+    tone: str,
+    use_emojis: bool,
 ):
-    prompt = _prompt(city, mayor, audience, topics, source_text, photo_url, add_hashtags, add_call_to_action)
+    prompt = _prompt(city, mayor, audience, topics, source_text, photo_url, add_hashtags, add_call_to_action, tone, use_emojis)
 
     chat = client.chat.completions.create(
         model=MODEL,
