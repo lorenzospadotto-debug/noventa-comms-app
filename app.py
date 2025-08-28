@@ -239,4 +239,3 @@ async def post(
 
     msg = "; ".join([f"{name}: {'OK' if ok else 'ERRORE'}" for name, ok, _ in results]) or "Nessun canale selezionato o token mancanti."
     return RedirectResponse(url=f"/?msg={msg}", status_code=303)
-
