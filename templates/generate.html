@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="grid md:grid-cols-[1fr_1fr] gap-6">
+    <section class="card">
+      <h2 class="text-lg font-semibold mb-3">1) Scrivi o incolla il testo di partenza</h2>
+      <form method="post" class="space-y-3">
+        <textarea name="raw_text" rows="8" class="input" placeholder="Usa **grassetto** e emoji come 👍, il resto lo adatto io ai canali.">{{ raw_text or "" }}</textarea>
+        <button class="btn-primary" type="submit">Genera anteprime</button>
+      </form>
+      <p class="text-xs text-slate-500 mt-3">Suggerimento: tieni il testo neutro. Le regole si adattano ai canali selezionati nel profilo.</p>
+    </section>
+
+    <section class="space-y-4">
+      {% if previews %}
+        {% for key, item in previews.items() %}
+          <div class="card" x-data="{copied:false}">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="font-semibold">{{ item.label }}</h3>
+              {% if item.char_limit %}<span class="text-xs text-slate-500">{{ item.length }}/{{ item.char_limit }}</span>{% endif %}
+            </div>
+            {% if key in ["website", "press"] %}
+              <div class="max-w-none" x-ref="content">{{ item.formatted | safe }}</div>
+            {% else %}
+              <pre class="whitespace-pre-wrap text-sm" x-ref="content">{{ item.formatted }}</pre>
+            {% endif %}
+            <div class="pt-3 flex gap-2">
+              <button class="btn-secondary" @click="copyText($refs.content); copied=true; setTimeout(()=>copied=false, 1200)">Copia</button>
+              <span class="text-xs" x-show="copied">Copiato ✅</span>
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="card"><div class="text-slate-500">Nessuna anteprima ancora. Inserisci un testo e premi "Genera".</div></div>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}
