@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="card max-w-3xl">
+    <h2 class="text-lg font-semibold mb-3">Aiutaci a imitare il tuo stile</h2>
+    <p class="text-slate-600 mb-3 text-sm">Incolla una o più dichiarazioni passate, comunicati o post che rispecchiano il tuo stile. L’AI li userà come riferimento (non verranno pubblicati).</p>
+    <form method="post" class="space-y-3" @submit="loading=true">
+      <textarea name="style_examples" rows="12" class="input" placeholder="Incolla qui testi che ti rappresentano…">{{ settings.style_examples or "" }}</textarea>
+      <div class="flex gap-2">
+        <button class="btn-primary" type="submit">Salva stile</button>
+        <a class="btn-secondary" href="/compose">Vai a Upload & Genera</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}
