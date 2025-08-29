@@ -1,90 +1,44 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="card">
-  <h2>Profilo utente</h2>
-  <form action="/profile" method="post">
-    <div class="grid">
-      <div>
-        <label>Nome visualizzato</label>
-        <input type="text" name="display_name" value="{{ settings.display_name }}" required />
+  <form method="post" class="grid gap-6 md:grid-cols-2">
+    <section class="card space-y-3">
+      <h2 class="text-lg font-semibold">Dettagli profilo</h2>
+      <div><label class="label">Nome</label><input name="name" class="input" value="{{ settings.name }}" /></div>
+      <div><label class="label">Ruolo</label><input name="role" class="input" value="{{ settings.role }}" /></div>
+      <div><label class="label">Tono</label><input name="tone" class="input" value="{{ settings.tone }}" placeholder="Istituzionale, empatico, energico…" /></div>
+      <div><label class="label">Emoji</label><input name="emoji" class="input" value="{{ settings.emoji }}" /></div>
+    </section>
+
+    <section class="card space-y-3">
+      <h2 class="text-lg font-semibold">Connessione canali</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div><label class="label">Facebook (URL pagina)</label><input name="facebook_url" class="input" value="{{ settings.social.facebook_url }}" placeholder="https://facebook.com/…" /></div>
+        <div><label class="label">Instagram (username)</label><input name="instagram_username" class="input" value="{{ settings.social.instagram_username }}" placeholder="nomeutente" /></div>
+        <div><label class="label">X (username)</label><input name="x_username" class="input" value="{{ settings.social.x_username }}" placeholder="nomeutente" /></div>
+        <div><label class="label">Sito (URL)</label><input name="website_url" class="input" value="{{ settings.social.website_url }}" placeholder="https://…" /></div>
       </div>
-      <div>
-        <label>Ruolo (es. Sindaco, Consigliere)</label>
-        <input type="text" name="role" value="{{ settings.role }}" required />
+
+      <div class="pt-2">
+        <div class="label mb-2">Seleziona canali</div>
+        <div class="grid grid-cols-2 gap-2">
+          {% set L = {"facebook":"Facebook","instagram":"Instagram","x":"X (Twitter)","website":"Sito","press":"Stampa"} %}
+          {% for key,label in L.items() %}
+            <label class="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="channels" value="{{ key }}" class="checkbox" {% if key in settings.channels %}checked{% endif %} />
+              <span>{{ label }}</span>
+            </label>
+          {% endfor %}
+        </div>
       </div>
-    </div>
 
-    <div class="grid">
-      <div>
-        <label>Comune/Ente</label>
-        <input type="text" name="city_name" value="{{ settings.city_name }}" required />
+      <div class="flex gap-2 pt-2">
+        <button class="btn-primary" type="submit">Salva profilo</button>
+        <a href="/" class="btn-secondary">Annulla</a>
       </div>
-      <div>
-        <label>Tono di scrittura</label>
-        <select name="tone">
-          <option value="istituzionale" {{ 'selected' if settings.tone=='istituzionale' else '' }}>Istituzionale</option>
-          <option value="istituzionale_vicino" {{ 'selected' if settings.tone=='istituzionale_vicino' else '' }}>Istituzionale ma vicino</option>
-          <option value="colloquiale" {{ 'selected' if settings.tone=='colloquiale' else '' }}>Colloquiale</option>
-          <option value="tecnico" {{ 'selected' if settings.tone=='tecnico' else '' }}>Tecnico</option>
-        </select>
+
+      <div class="text-xs text-slate-500 pt-2">
+        L'integrazione diretta (pubblicazione automatica) richiede i passaggi OAuth delle piattaforme: li aggiungeremo in seguito. Per ora salviamo i collegamenti/username per un accesso rapido.
       </div>
-    </div>
-
-    <label class="row">
-      <input type="checkbox" name="use_emojis" {{ 'checked' if settings.use_emojis else '' }} />
-      Usa emoji nei post social (max 1–2; mai nel comunicato o nel sito)
-    </label>
-</section>
-
-<section class="card">
-  <h2>Connessione profili social</h2>
-  <p class="muted">Inserisci le credenziali/token delle API. I dati vengono salvati solo in questo servizio.</p>
-
-  <h3>Facebook (Pagina)</h3>
-  <div class="grid">
-    <div>
-      <label>FB_PAGE_ID</label>
-      <input type="text" name="fb_page_id" value="{{ settings.fb_page_id }}" />
-    </div>
-    <div>
-      <label>FB_PAGE_ACCESS_TOKEN</label>
-      <input type="text" name="fb_page_access_token" value="{{ settings.fb_page_access_token }}" />
-    </div>
-  </div>
-
-  <h3>Instagram Business</h3>
-  <div class="grid">
-    <div>
-      <label>IG_USER_ID</label>
-      <input type="text" name="ig_user_id" value="{{ settings.ig_user_id }}" />
-    </div>
-  </div>
-
-  <h3>LinkedIn (opzionale)</h3>
-  <div class="grid">
-    <div>
-      <label>LINKEDIN_ACCESS_TOKEN</label>
-      <input type="text" name="linkedin_access_token" value="{{ settings.linkedin_access_token }}" />
-    </div>
-    <div>
-      <label>LINKEDIN_ORG_ID (per pagine)</label>
-      <input type="text" name="linkedin_org_id" value="{{ settings.linkedin_org_id }}" />
-    </div>
-  </div>
-
-  <h3>X (Twitter) — opzionale</h3>
-  <div class="grid">
-    <div>
-      <label>X_BEARER_TOKEN</label>
-      <input type="text" name="x_bearer_token" value="{{ settings.x_bearer_token }}" />
-    </div>
-    <div>
-      <label>X_USER_ID</label>
-      <input type="text" name="x_user_id" value="{{ settings.x_user_id }}" />
-    </div>
-  </div>
-
-  <button type="submit">Salva profilo</button>
+    </section>
   </form>
-</section>
 {% endblock %}
