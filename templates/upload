@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="card space-y-3 max-w-xl">
+    <h2 class="text-lg font-semibold">Carica documento</h2>
+    <form method="post" enctype="multipart/form-data" class="space-y-3">
+      <input type="file" name="file" class="input" />
+      <button class="btn-primary" type="submit">Carica</button>
+    </form>
+    <p class="text-xs text-slate-500">Supporto base: il file non viene ancora analizzato. Integrazioni in arrivo.</p>
+  </section>
+{% endblock %}
