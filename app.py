@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
-from fastapi import FastAPI, Request, Form, UploadFile, File, Query
+from fastapi import FastAPI, Request, Form, UploadFile, File, Query, Response
 from fastapi.responses import RedirectResponse, HTMLResponse, FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -31,19 +31,15 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 # ----------------------------
 def get_writable_data_dir() -> str:
     candidates = []
-    # 1) ENV esplicita
     env_dir = os.getenv("DATA_DIR")
     if env_dir:
         candidates.append(env_dir)
-    # 2) Path standard Render Disk
     candidates.append("/var/data")
-    # 3) Cartella locale del progetto
     candidates.append(os.path.join(os.getcwd(), "data"))
 
     for path in candidates:
         try:
             os.makedirs(path, exist_ok=True)
-            # Test scrittura
             testfile = os.path.join(path, ".write_test")
             with open(testfile, "w", encoding="utf-8") as f:
                 f.write("ok")
@@ -51,7 +47,6 @@ def get_writable_data_dir() -> str:
             return path
         except Exception:
             continue
-    # Estremo fallback: current dir
     return os.getcwd()
 
 DATA_DIR = get_writable_data_dir()
@@ -189,7 +184,7 @@ def split_into_posts(text: str, limit: int = 280) -> List[str]:
 
 def save_draft(entry: Dict[str, Any]) -> None:
     try:
-        with open(DRAFTS_PATH, "r", encoding="utf-8") as f:
+        with open(DRAFTS_PATH, "r", encoding="utf-8") open as f:
             arr = json.load(f)
     except Exception:
         arr = []
@@ -205,6 +200,16 @@ def save_draft(entry: Dict[str, Any]) -> None:
 # ----------------------------
 # Routes
 # ----------------------------
+@app.head("/")
+def head_root():
+    # Evita 405 nei log dei probe HEAD
+    return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+
+@app.head("/health")
+def head_health():
+    # Risposta minima OK per i probe
+    return Response(status_code=200)
+
 @app.get("/health")
 def health():
     return {"status": "ok", "app": APP_NAME, "data_dir": DATA_DIR}
