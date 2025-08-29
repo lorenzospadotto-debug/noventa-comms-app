@@ -1,11 +1,28 @@
 {% extends "base.html" %}
 {% block content %}
-  <section class="card space-y-3 max-w-xl">
-    <h2 class="text-lg font-semibold">Carica documento</h2>
-    <form method="post" enctype="multipart/form-data" class="space-y-3">
-      <input type="file" name="file" class="input" />
-      <button class="btn-primary" type="submit">Carica</button>
+  <section class="card space-y-4 max-w-3xl" x-data="dragDrop()">
+    <h2 class="text-lg font-semibold">Carica documento o incolla link</h2>
+
+    <form id="uploadForm" method="post" enctype="multipart/form-data" class="space-y-3">
+      <div class="border-2 border-dashed rounded-xl p-6 text-center"
+           :class="{ 'border-[var(--vox-primary)] bg-white' : over, 'border-slate-300 bg-white' : !over }"
+           @dragover.prevent="over=true" @dragleave.prevent="over=false" @drop.prevent="handleDrop($event)">
+        <p class="mb-2">Trascina qui un file (PDF, DOCX, TXT) oppure clicca per scegliere</p>
+        <input type="file" name="file" class="hidden" x-ref="fileInput" @change="submitOnChange" />
+        <button type="button" class="btn-secondary" @click="$refs.fileInput.click()">Scegli file</button>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <span class="label m-0">Oppure link articolo</span>
+        <input type="url" name="article_url" class="input" placeholder="https://…" />
+      </div>
+
+      <div class="flex gap-2">
+        <button class="btn-primary" type="submit">Genera testi</button>
+        <a href="/" class="btn-secondary">Annulla</a>
+      </div>
     </form>
-    <p class="text-xs text-slate-500">Supporto base: il file non viene ancora analizzato. Integrazioni in arrivo.</p>
+
+    <p class="text-xs text-slate-600">Dopo l'upload o l'inserimento del link, VoxUp estrae il testo, lo rielabora con l'AI e mostra le anteprime per i canali selezionati.</p>
   </section>
 {% endblock %}
