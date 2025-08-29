@@ -1,6 +1,7 @@
 import os
 import re
 import json
+import sqlite3
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
@@ -12,44 +13,41 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from starlette import status
 
-# Per estrazione/creazione documenti
+# Documenti
 from io import BytesIO
 from docx import Document
 from PyPDF2 import PdfReader
 
+# Password hashing (puro Python)
+from passlib.hash import pbkdf2_sha256
+
 APP_NAME = "VoxUp"
 
 SECRET_KEY = os.getenv("SECRET_KEY", "change-me-please-very-long-secret")
-ADMIN_PIN = os.getenv("ADMIN_PIN", "246810")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 
 # ----------------------------
-# Directory dati (bozze/esportazioni)
-# - Se DATA_DIR è impostata (es. /var/data su Render Disk), usala.
-# - Altrimenti prova /var/data (comune su Render se hai montato un Disk).
-# - Se non scrivibile, fallback a ./data dentro al progetto.
+# Cartelle dati & DB
 # ----------------------------
 def get_writable_data_dir() -> str:
-    candidates = []
-    env_dir = os.getenv("DATA_DIR")
-    if env_dir:
-        candidates.append(env_dir)
-    candidates.append("/var/data")
-    candidates.append(os.path.join(os.getcwd(), "data"))
-
-    for path in candidates:
+    cand = []
+    if os.getenv("DATA_DIR"):
+        cand.append(os.getenv("DATA_DIR"))
+    cand.append("/var/data")  # Render Disk default
+    cand.append(os.path.join(os.getcwd(), "data"))
+    for p in cand:
         try:
-            os.makedirs(path, exist_ok=True)
-            testfile = os.path.join(path, ".write_test")
-            with open(testfile, "w", encoding="utf-8") as f:
+            os.makedirs(p, exist_ok=True)
+            test = os.path.join(p, ".write_test")
+            with open(test, "w", encoding="utf-8") as f:
                 f.write("ok")
-            os.remove(testfile)
-            return path
+            os.remove(test)
+            return p
         except Exception:
             continue
     return os.getcwd()
 
 DATA_DIR = get_writable_data_dir()
+DB_PATH = os.path.join(DATA_DIR, "voxup.sqlite3")
 DRAFTS_PATH = os.path.join(DATA_DIR, "voxup_drafts.json")
 if not os.path.exists(DRAFTS_PATH):
     try:
@@ -58,18 +56,44 @@ if not os.path.exists(DRAFTS_PATH):
     except Exception:
         pass
 
+def db_connect() -> sqlite3.Connection:
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def db_init():
+    conn = db_connect()
+    cur = conn.cursor()
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        email TEXT NOT NULL UNIQUE,
+        role TEXT DEFAULT '',
+        password_hash TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    );
+    """)
+    conn.commit()
+    conn.close()
+
+db_init()
+
+# ----------------------------
+# App & Templates
+# ----------------------------
 app = FastAPI(title=APP_NAME)
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-
 # ----------------------------
 # Helpers
 # ----------------------------
 def ensure_session_defaults(session: Dict[str, Any]) -> None:
     session.setdefault("auth", False)
+    session.setdefault("user", None)
     session.setdefault("profile", {
         "first_name": "",
         "last_name": "",
@@ -81,33 +105,25 @@ def ensure_session_defaults(session: Dict[str, Any]) -> None:
     session.setdefault("style_guide", "")
     session.setdefault("last_results", {})  # per esportazioni
 
-
 def unicode_bold(text: str) -> str:
     def _bold_char(c: str) -> str:
-        if 'A' <= c <= 'Z':
-            return chr(ord('𝐀') + (ord(c) - ord('A')))
-        if 'a' <= c <= 'z':
-            return chr(ord('𝐚') + (ord(c) - ord('a')))
-        if '0' <= c <= '9':
-            return chr(ord('𝟎') + (ord(c) - ord('0')))
+        if 'A' <= c <= 'Z': return chr(ord('𝐀') + (ord(c) - ord('A')))
+        if 'a' <= c <= 'z': return chr(ord('𝐚') + (ord(c) - ord('a')))
+        if '0' <= c <= '9': return chr(ord('𝟎') + (ord(c) - ord('0')))
         return c
     return "".join(_bold_char(c) for c in text)
 
-
-EMOJI_PATTERN = re.compile(
-    "["                     
+EMOJI_PATTERN = re.compile("["                     
     "\U0001F600-\U0001F64F"
     "\U0001F300-\U0001F5FF"
     "\U0001F680-\U0001F6FF"
     "\U0001F1E0-\U0001F1FF"
     "\u2600-\u26FF"
     "\u2700-\u27BF"
-    "]+", flags=re.UNICODE
-)
+    "]+", flags=re.UNICODE)
 
 def remove_emojis(text: str) -> str:
     return EMOJI_PATTERN.sub("", text)
-
 
 def format_for_channel(base_text: str, channel: str) -> str:
     if channel.lower() == "social":
@@ -119,9 +135,7 @@ def format_for_channel(base_text: str, channel: str) -> str:
             return f"<strong>{head.strip()}:</strong>{tail}"
         return f"<strong>{no_emoji}</strong>"
 
-
 def extract_text_from_upload(filename: str, data: bytes) -> str:
-    """Supporta .txt/.md, .pdf, .docx."""
     name = filename.lower()
     if name.endswith((".txt", ".md")):
         try:
@@ -146,44 +160,35 @@ def extract_text_from_upload(filename: str, data: bytes) -> str:
             return ""
     return ""
 
-
 def split_into_posts(text: str, limit: int = 280) -> List[str]:
     text = text.strip()
-    if not text:
-        return []
+    if not text: return []
     words = text.split()
-    chunks: List[str] = []
-    cur = ""
+    chunks, cur = [], ""
     for w in words:
         candidate = (cur + " " + w).strip() if cur else w
         if len(candidate) <= limit:
             cur = candidate
         else:
-            if cur:
-                chunks.append(cur)
+            if cur: chunks.append(cur)
             if len(w) > limit:
                 while len(w) > limit:
-                    chunks.append(w[:limit])
-                    w = w[limit:]
+                    chunks.append(w[:limit]); w = w[limit:]
                 cur = w
             else:
                 cur = w
-    if cur:
-        chunks.append(cur)
-
+    if cur: chunks.append(cur)
     if len(chunks) > 1:
         total = len(chunks)
-        numbered: List[str] = []
-        for i, c in enumerate(chunks, start=1):
+        out = []
+        for i, c in enumerate(chunks, 1):
             prefix = f"{i}/{total} "
             room = limit - len(prefix)
-            numbered.append(prefix + (c[:room] if len(c) > room else c))
-        return numbered
+            out.append(prefix + (c[:room] if len(c) > room else c))
+        return out
     return chunks
 
-
 def save_draft(entry: Dict[str, Any]) -> None:
-    """Aggiunge una bozza su file JSON, massimo 50 elementi."""
     try:
         with open(DRAFTS_PATH, "r", encoding="utf-8") as f:
             arr = json.load(f)
@@ -197,23 +202,85 @@ def save_draft(entry: Dict[str, Any]) -> None:
     except Exception:
         pass
 
+def require_auth(request: Request) -> bool:
+    ensure_session_defaults(request.session)
+    return bool(request.session.get("auth"))
 
 # ----------------------------
-# Routes
+# ROUTES: health + HEAD
 # ----------------------------
 @app.head("/")
 def head_root():
-    # Evita 405 nei log dei probe HEAD
     return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
 
 @app.head("/health")
 def head_health():
-    # Risposta minima OK per i probe
     return Response(status_code=200)
 
 @app.get("/health")
 def health():
     return {"status": "ok", "app": APP_NAME, "data_dir": DATA_DIR}
+
+# ----------------------------
+# AUTH: register / login / logout
+# ----------------------------
+@app.get("/register", response_class=HTMLResponse)
+def register_page(request: Request):
+    ensure_session_defaults(request.session)
+    if request.session.get("auth"):
+        return RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
+    return templates.TemplateResponse("register.html", {"request": request, "app_name": APP_NAME})
+
+@app.post("/register")
+def register_submit(
+    request: Request,
+    name: str = Form(...),
+    email: str = Form(...),
+    role: str = Form(""),
+    password: str = Form(...),
+    password2: str = Form(...)
+):
+    ensure_session_defaults(request.session)
+    if password != password2 or len(password) < 6:
+        return templates.TemplateResponse(
+            "register.html",
+            {"request": request, "app_name": APP_NAME,
+             "error": "Password non valida (min 6 caratteri) o non coincidono."},
+            status_code=400
+        )
+    email = email.strip().lower()
+    name = name.strip()
+    role = role.strip()
+    pw_hash = pbkdf2_sha256.hash(password)
+
+    try:
+        conn = db_connect()
+        cur = conn.cursor()
+        cur.execute("INSERT INTO users(name,email,role,password_hash,created_at) VALUES(?,?,?,?,?)",
+                    (name, email, role, pw_hash, datetime.utcnow().isoformat()+"Z"))
+        conn.commit()
+        conn.close()
+    except sqlite3.IntegrityError:
+        return templates.TemplateResponse(
+            "register.html",
+            {"request": request, "app_name": APP_NAME,
+             "error": "Email già registrata."},
+            status_code=400
+        )
+
+    # Auto-login dopo registrazione
+    request.session["auth"] = True
+    request.session["user"] = {"name": name, "email": email, "role": role}
+    # Inizializza profilo a partire dai dati utente
+    request.session["profile"] = {
+        "first_name": name.split(" ")[0] if name else "",
+        "last_name": " ".join(name.split(" ")[1:]) if len(name.split(" "))>1 else "",
+        "role": role,
+        "tones": [],
+        "channels": ["Social"],
+        "add_ai": False
+    }
+    return RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
 
 @app.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
@@ -223,42 +290,51 @@ def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request, "app_name": APP_NAME})
 
 @app.post("/login")
-async def login_submit(request: Request, pin: str = Form(...)):
+def login_submit(request: Request, email: str = Form(...), password: str = Form(...)):
     ensure_session_defaults(request.session)
-    if pin.strip() == ADMIN_PIN:
-        request.session["auth"] = True
-        return RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
-    return templates.TemplateResponse(
-        "login.html",
-        {"request": request, "app_name": APP_NAME, "error": "PIN errato. Riprova."},
-        status_code=status.HTTP_401_UNAUTHORIZED
-    )
+    email = email.strip().lower()
+    conn = db_connect()
+    cur = conn.cursor()
+    cur.execute("SELECT id,name,email,role,password_hash FROM users WHERE email=?", (email,))
+    row = cur.fetchone()
+    conn.close()
+    if not row or not pbkdf2_sha256.verify(password, row["password_hash"]):
+        return templates.TemplateResponse(
+            "login.html",
+            {"request": request, "app_name": APP_NAME, "error": "Credenziali non valide."},
+            status_code=401
+        )
+
+    request.session["auth"] = True
+    request.session["user"] = {"name": row["name"], "email": row["email"], "role": row["role"]}
+    # Se il profilo è vuoto, precompila
+    prof = request.session.get("profile", {})
+    if not prof.get("role"):
+        prof["role"] = row["role"] or ""
+    request.session["profile"] = prof
+    return RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
 
 @app.get("/logout")
 def logout(request: Request):
     request.session.clear()
     return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
 
-
-def require_auth(request: Request):
-    ensure_session_defaults(request.session)
-    return bool(request.session.get("auth"))
-
-
+# ----------------------------
+# Onboarding / Pagine app
+# ----------------------------
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
     if not require_auth(request):
         return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
-    profile = request.session.get("profile", {})
     return templates.TemplateResponse("home.html", {
         "request": request,
         "app_name": APP_NAME,
-        "profile": profile
+        "profile": request.session.get("profile", {}),
+        "user": request.session.get("user")
     })
 
-
 @app.post("/save_onboarding")
-async def save_onboarding(
+def save_onboarding(
     request: Request,
     first_name: str = Form(""),
     last_name: str = Form(""),
@@ -278,7 +354,6 @@ async def save_onboarding(
     request.session["profile"] = profile
     return RedirectResponse(url="/compose", status_code=status.HTTP_302_FOUND)
 
-
 @app.get("/compose", response_class=HTMLResponse)
 def compose_page(request: Request):
     if not require_auth(request):
@@ -289,7 +364,6 @@ def compose_page(request: Request):
         "profile": request.session.get("profile", {}),
         "results": None
     })
-
 
 @app.post("/generate", response_class=HTMLResponse)
 async def generate(
@@ -308,18 +382,14 @@ async def generate(
     add_ai = profile.get("add_ai", False)
 
     bodies: List[str] = []
-    if text_input.strip():
-        bodies.append(text_input.strip())
-    if url_input.strip():
-        bodies.append(f"Fonte: {url_input.strip()}")
+    if text_input.strip(): bodies.append(text_input.strip())
+    if url_input.strip(): bodies.append(f"Fonte: {url_input.strip()}")
 
     file_previews = []
     if files:
         for f in files:
-            try:
-                raw = await f.read()
-            except Exception:
-                raw = b""
+            try: raw = await f.read()
+            except Exception: raw = b""
             text = extract_text_from_upload(f.filename, raw)
             snippet = text[:500] + ("…" if len(text) > 500 else "")
             if not text:
@@ -348,8 +418,7 @@ async def generate(
     for ch in channels:
         content = format_for_channel(combined_text, ch)
         if ch == "Social" and do_split:
-            raw = combined_text
-            pieces = split_into_posts(raw, 280)
+            pieces = split_into_posts(combined_text, 280)
             results[ch] = [unicode_bold(p) for p in pieces]
         else:
             results[ch] = content
@@ -372,11 +441,8 @@ async def generate(
         "split_used": do_split
     })
 
-
 @app.get("/export")
-def export_result(request: Request,
-                  channel: str = Query(...),
-                  fmt: str = Query(...)):
+def export_result(request: Request, channel: str = Query(...), fmt: str = Query(...)):
     if not require_auth(request):
         return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
     ensure_session_defaults(request.session)
@@ -391,8 +457,7 @@ def export_result(request: Request,
         joined = "\n\n".join(value)
         if fmt == "txt":
             path = os.path.join(DATA_DIR, f"voxup_{safe_name}.txt")
-            with open(path, "w", encoding="utf-8") as f:
-                f.write(joined)
+            with open(path, "w", encoding="utf-8") as f: f.write(joined)
             return FileResponse(path, media_type="text/plain", filename=f"{APP_NAME}_{safe_name}.txt")
         elif fmt == "html":
             html = "<br>".join(value)
@@ -408,8 +473,7 @@ def export_result(request: Request,
     if fmt == "txt":
         plain = re.sub(r"<[^>]+>", "", content)
         path = os.path.join(DATA_DIR, f"voxup_{safe_name}.txt")
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(plain)
+        with open(path, "w", encoding="utf-8") as f: f.write(plain)
         return FileResponse(path, media_type="text/plain", filename=f"{APP_NAME}_{safe_name}.txt")
 
     if fmt == "html":
@@ -422,46 +486,43 @@ def export_result(request: Request,
     if fmt == "docx" and channel == "Stampa":
         doc = Document()
         plain = re.sub(r"<[^>]+>", "", content)
-        for para in plain.split("\n"):
-            doc.add_paragraph(para)
+        for para in plain.split("\n"): doc.add_paragraph(para)
         tmp = os.path.join(DATA_DIR, f"voxup_{safe_name}.docx")
         doc.save(tmp)
-        return FileResponse(tmp, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                            filename=f"{APP_NAME}_{safe_name}.docx")
+        return FileResponse(tmp,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            filename=f"{APP_NAME}_{safe_name}.docx")
 
     return PlainTextResponse("Formato non supportato.", status_code=400)
-
 
 @app.get("/style", response_class=HTMLResponse)
 def style_page(request: Request):
     if not require_auth(request):
         return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
     return templates.TemplateResponse("style.html", {
-        "request": request,
-        "app_name": APP_NAME,
+        "request": request, "app_name": APP_NAME,
         "style_guide": request.session.get("style_guide", "")
     })
 
 @app.post("/style")
-async def style_save(request: Request, style_guide: str = Form("")):
+def style_save(request: Request, style_guide: str = Form("")):
     if not require_auth(request):
         return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
     request.session["style_guide"] = style_guide.strip()
     return RedirectResponse(url="/style", status_code=status.HTTP_302_FOUND)
-
 
 @app.get("/profile", response_class=HTMLResponse)
 def profile_page(request: Request):
     if not require_auth(request):
         return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
     return templates.TemplateResponse("profile.html", {
-        "request": request,
-        "app_name": APP_NAME,
-        "profile": request.session.get("profile", {})
+        "request": request, "app_name": APP_NAME,
+        "profile": request.session.get("profile", {}),
+        "user": request.session.get("user")
     })
 
 @app.post("/profile")
-async def profile_save(
+def profile_save(
     request: Request,
     first_name: str = Form(""),
     last_name: str = Form(""),
@@ -483,7 +544,6 @@ async def profile_save(
     request.session["profile"] = profile
     return RedirectResponse(url="/profile", status_code=status.HTTP_302_FOUND)
 
-
 @app.get("/drafts", response_class=HTMLResponse)
 def drafts_page(request: Request):
     if not require_auth(request):
@@ -494,7 +554,5 @@ def drafts_page(request: Request):
     except Exception:
         items = []
     return templates.TemplateResponse("drafts.html", {
-        "request": request,
-        "app_name": APP_NAME,
-        "drafts": items[:20]
+        "request": request, "app_name": APP_NAME, "drafts": items[:20]
     })
