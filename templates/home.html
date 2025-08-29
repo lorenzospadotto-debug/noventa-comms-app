@@ -1,35 +1,54 @@
 {% extends "base.html" %}
 {% block content %}
-  <div class="grid-cards">
-    <section class="card">
-      <h2 class="text-lg font-semibold mb-2">Benvenuto su VoxUp 👋</h2>
-      <p class="text-slate-700 mb-4">Carica documenti o link e ottieni subito testi pronti per social, sito e stampa.</p>
-      <div class="flex gap-2 flex-wrap">
-        <a href="/upload" class="btn-primary">Carica file o link</a>
-        <a href="/profile" class="btn-secondary">Configura Profilo</a>
-        <a href="/generate" class="btn-secondary">Genera da testo</a>
+  <section class="card max-w-3xl">
+    <h2 class="text-lg font-semibold mb-3">Completa questi 4 passaggi</h2>
+    <form method="post" action="/onboarding" class="space-y-4" @submit="loading=true">
+      <div>
+        <div class="label">1) Nome e Cognome</div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <input name="first_name" class="input" placeholder="Nome" value="{{ settings.first_name }}">
+          <input name="last_name" class="input" placeholder="Cognome" value="{{ settings.last_name }}">
+        </div>
       </div>
-    </section>
 
-    <section class="card">
-      <h3 class="font-semibold mb-2">Canali attivi</h3>
-      <ul class="text-sm text-slate-700 list-disc pl-5">
-        {% for ch in settings.channels %}
-          <li>{{ channel_labels[ch] if channel_labels and ch in channel_labels else ch }}</li>
-        {% else %}
-          <li>Nessun canale selezionato</li>
-        {% endfor %}
-      </ul>
-      <p class="text-xs text-slate-500 mt-2">Solo indicare l'URL Facebook <strong>non</strong> abilita la pubblicazione automatica: servirà OAuth (in arrivo).</p>
-    </section>
+      <div>
+        <div class="label">2) Ruolo/Titolo</div>
+        <input name="role" class="input" placeholder="Sindaco, Onorevole, Consigliere…" value="{{ settings.role }}">
+      </div>
 
-    <section class="card">
-      <h3 class="font-semibold mb-2">Suggerimenti</h3>
-      <ul class="text-sm text-slate-700 list-disc pl-5 space-y-1">
-        <li>Usa <code>**grassetto**</code> nel testo di partenza: verrà adattato ai vari canali.</li>
-        <li>Le emoji sono mantenute sui social, rimosse nei comunicati.</li>
-        <li>Puoi incollare un <strong>link</strong> di articolo: estraiamo il testo automaticamente.</li>
-      </ul>
-    </section>
-  </div>
+      <div>
+        <div class="label">3) Tono delle comunicazioni (scegline più di uno)</div>
+        {% set opts = ["Istituzionale","Empatico","Energico","Inclusivo","Determinato","Conciliante","Visionario","Pragmatico","Tecnico","Vicino al territorio"] %}
+        <div class="grid grid-cols-2 gap-2">
+          {% for t in opts %}
+          <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="tones" value="{{ t }}" class="checkbox" {% if settings.tones and t in settings.tones %}checked{% endif %}>
+            <span>{{ t }}</span>
+          </label>
+          {% endfor %}
+        </div>
+        <div class="mt-2 flex items-center gap-2">
+          <span class="text-sm text-slate-600">Altro:</span>
+          <input name="tone_other" class="input" value="{{ settings.tone_other }}" placeholder="es. concreto, europeista…">
+        </div>
+      </div>
+
+      <div>
+        <div class="label">4) Seleziona per cosa vuoi i testi</div>
+        {% set L = {"facebook":"Facebook","instagram":"Instagram","x":"X (Twitter)","website":"Sito","press":"Stampa"} %}
+        <div class="grid grid-cols-2 gap-2">
+          {% for key,label in L.items() %}
+          <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="channels" value="{{ key }}" class="checkbox" {% if settings.channels and key in settings.channels %}checked{% endif %}>
+            <span>{{ label }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="pt-2">
+        <button class="btn-primary" type="submit">Vai a Upload & Genera</button>
+      </div>
+    </form>
+  </section>
 {% endblock %}
