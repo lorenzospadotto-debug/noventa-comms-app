@@ -3,34 +3,40 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{{ request.app.title }}</title>
+    <title>VoxUp — Ufficio Stampa</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script defer src="/static/js/app.js"></script>
     <style>
-      .nav-link { display:block; padding:0.5rem 0.75rem; border-radius:0.75rem; color:#334155; text-decoration:none; }
-      .nav-link:hover { background:#f1f5f9; }
-      .card { background:#fff; border-radius:1rem; box-shadow:0 1px 2px rgba(0,0,0,.04); border:1px solid #e2e8f0; padding:1rem; }
-      @media (min-width:768px){ .card{ padding:1.5rem; } }
-      .btn-primary { display:inline-flex; align-items:center; justify-content:center; border-radius:0.75rem; padding:0.5rem 1rem; background:#2563eb; color:#fff; }
-      .btn-primary:hover { background:#1d4ed8; }
-      .btn-secondary { display:inline-flex; align-items:center; justify-content:center; border-radius:0.75rem; padding:0.375rem 0.75rem; background:#f1f5f9; color:#334155; }
-      .btn-secondary:hover { background:#e2e8f0; }
-      .input { width:100%; border-radius:0.75rem; border:1px solid #cbd5e1; padding:0.5rem 0.75rem; background:#fff; }
-      .input:focus { outline:none; box-shadow:0 0 0 2px #93c5fd; border-color:#3b82f6; }
-      .label { font-size:.875rem; font-weight:600; color:#334155; margin-bottom:.25rem; display:block; }
-      .checkbox { width:1rem; height:1rem; }
-      .grid-cards { display:grid; gap:1rem; }
-      @media (min-width:768px){ .grid-cards{ gap:1.5rem; grid-template-columns:repeat(2,minmax(0,1fr)); } }
-      @media (min-width:1280px){ .grid-cards{ grid-template-columns:repeat(3,minmax(0,1fr)); } }
+      :root{
+        --vox-bg:#F5EFE3;        /* beige del logo */
+        --vox-ink:#0F172A;       /* blu scurissimo */
+        --vox-primary:#E9542B;   /* arancio/rosso megafono */
+      }
+      body{background:var(--vox-bg); color:var(--vox-ink);}
+      .nav-link{display:block;padding:.5rem .75rem;border-radius:.75rem;color:#334155;text-decoration:none}
+      .nav-link:hover{background:#f1f5f9}
+      .card{background:#fff;border-radius:1rem;box-shadow:0 1px 2px rgba(0,0,0,.04);border:1px solid #e2e8f0;padding:1rem}
+      @media(min-width:768px){.card{padding:1.5rem}}
+      .btn-primary{display:inline-flex;align-items:center;justify-content:center;border-radius:.75rem;padding:.5rem 1rem;background:var(--vox-primary);color:#fff}
+      .btn-primary:hover{filter:brightness(.95)}
+      .btn-secondary{display:inline-flex;align-items:center;justify-content:center;border-radius:.75rem;padding:.375rem .75rem;background:#f1f5f9;color:#334155}
+      .btn-secondary:hover{background:#e2e8f0}
+      .input{width:100%;border-radius:.75rem;border:1px solid #cbd5e1;padding:.5rem .75rem;background:#fff}
+      .input:focus{outline:none;box-shadow:0 0 0 2px rgba(233,84,43,.25);border-color:var(--vox-primary)}
+      .label{font-size:.875rem;font-weight:600;color:#334155;margin-bottom:.25rem;display:block}
+      .checkbox{width:1rem;height:1rem}
+      .grid-cards{display:grid;gap:1rem}
+      @media(min-width:768px){.grid-cards{gap:1.5rem;grid-template-columns:repeat(2,minmax(0,1fr))}}
+      @media(min-width:1280px){.grid-cards{grid-template-columns:repeat(3,minmax(0,1fr))}}
     </style>
   </head>
-  <body class="bg-slate-50 text-slate-800">
+  <body>
     <div class="min-h-screen grid grid-cols-1 md:grid-cols-[260px_1fr]">
       <aside class="bg-white md:border-r border-slate-200">
-        <div class="p-5 border-b border-slate-200">
-          <a href="/" class="text-xl font-bold">Ufficio Stampa</a>
-          <div class="text-xs text-slate-500">per politici</div>
+        <div class="p-5 border-b border-slate-200 flex items-center gap-3">
+          <img src="/static/img/logo.png" alt="VoxUp" class="h-7 w-auto" onerror="this.style.display='none'">
+          <a href="/" class="text-xl font-bold">VoxUp</a>
         </div>
         <nav class="p-3 space-y-1">
           <a href="/" class="nav-link">🏠 Home</a>
@@ -38,16 +44,21 @@
           <a href="/generate" class="nav-link">🧠 Genera Testi</a>
           <a href="/upload" class="nav-link">📄 Upload</a>
         </nav>
-        <div class="mt-auto p-4 text-xs text-slate-400 hidden md:block">v1 • FastAPI + Tailwind</div>
+        <div class="mt-auto p-4 text-xs text-slate-500 hidden md:block">v1 • VoxUp</div>
       </aside>
 
       <main class="p-4 md:p-8">
         <header class="flex items-center justify-between mb-6">
           <div class="flex items-center gap-3">
-            <div class="text-2xl">{{ settings.emoji if settings and settings.emoji else "🏛️" }}</div>
+            <div class="text-2xl">{{ settings.emoji if settings and settings.emoji else "📣" }}</div>
             <div>
-              <div class="font-semibold">{{ settings.name or "Nome politico" }}</div>
-              <div class="text-xs text-slate-500">{{ settings.role or "Ruolo" }} • {{ settings.tone or "Tono" }}</div>
+              <div class="font-semibold">
+                {% if settings %}{{ (settings.first_name ~ ' ' ~ settings.last_name)|trim }}{% else %}Nome Cognome{% endif %}
+              </div>
+              <div class="text-xs text-slate-600">
+                {{ settings.role or "Ruolo" }} •
+                {{ (settings.tones|join(', ')) if settings and settings.tones else "Toni" }}
+              </div>
             </div>
           </div>
           <div class="hidden md:flex items-center gap-2 text-sm">
