@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="grid md:grid-cols-[1fr_1fr] gap-6" x-data="dragDrop()">
+    <section class="card space-y-4">
+      <h2 class="text-lg font-semibold">Carica o incolla, poi genera</h2>
+      <form id="composeForm" method="post" enctype="multipart/form-data" class="space-y-3" @submit="startLoading">
+        <textarea name="source_text" rows="6" class="input" placeholder="Incolla qui un testo (opzionale). Usa **grassetto** e emoji.">{{ raw_text or "" }}</textarea>
+
+        <div class="flex items-center gap-2">
+          <span class="label m-0">Oppure link di articolo</span>
+          <input type="url" name="article_url" class="input" placeholder="https://…">
+        </div>
+
+        <div class="border-2 border-dashed rounded-xl p-6 text-center"
+             :class="{ 'border-[var(--vox-primary)] bg-white' : over, 'border-slate-300 bg-white' : !over }"
+             @dragover.prevent="over=true" @dragleave.prevent="over=false" @drop.prevent="handleDrop($event)">
+          <p class="mb-2">Trascina qui un file (PDF, DOCX, TXT) oppure clicca</p>
+          <input type="file" name="file" class="hidden" x-ref="fileInput" />
+          <button type="button" class="btn-secondary" @click="$refs.fileInput.click()">Scegli file</button>
+        </div>
+
+        <div class="flex gap-2">
+          <button class="btn-primary" type="submit">Genera anteprime</button>
+          <a href="/" class="btn-secondary">Torna all'inizio</a>
+        </div>
+      </form>
+
+      {% if ai_text %}
+      <div class="pt-2">
+        <h3 class="font-semibold mb-2">Rielaborazione AI</h3>
+        <pre class="whitespace-pre-wrap text-sm">{{ ai_text }}</pre>
+      </div>
+      {% endif %}
+    </section>
+
+    <section class="space-y-4">
+      {% if previews %}
+        {% for key, item in previews.items() %}
+          <div class="card" x-data="{copied:false}">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="font-semibold">{{ item.label }}</h3>
+              {% if item.char_limit %}<span class="text-xs text-slate-500">{{ item.length }}/{{ item.char_limit }}</span>{% endif %}
+            </div>
+            {% if key in ["website","press"] %}
+              <div x-ref="content">{{ item.formatted | safe }}</div>
+            {% else %}
+              <pre class="whitespace-pre-wrap text-sm" x-ref="content">{{ item.formatted }}</pre>
+            {% endif %}
+            <div class="pt-3 flex gap-2">
+              <button class="btn-secondary" @click="copyText($refs.content); copied=true; setTimeout(()=>copied=false, 1200)">Copia</button>
+              <span class="text-xs" x-show="copied">Copiato ✅</span>
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="card"><div class="text-slate-500">Nessuna anteprima ancora. Incolla testo, link o trascina un file.</div></div>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}
