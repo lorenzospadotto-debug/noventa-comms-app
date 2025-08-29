@@ -118,9 +118,12 @@ Foto allegata: {photo_url or 'no'}
     if "SOCIAL_X" in sections:
         outputs_spec.append(
             f"4) >>>SOCIAL_X<<< (max 280 caratteri), incisivo e chiaro, possibile 1 grassetto mirato. "
-            f\"{'Consenti' if use_emojis_social else 'Non usare'} emoji. "
-            f\"{'Aggiungi 1-2 hashtag se pertinenti.' if add_hashtags else ''}\"
-        )
+            if "SOCIAL_X" in sections:
+    outputs_spec.append(
+        f"4) >>>SOCIAL_X<<< (max 280 caratteri), incisivo e chiaro, possibile 1 grassetto mirato. "
+        f"{'Consenti' if use_emojis_social else 'Non usare'} emoji. "
+        f"{'Aggiungi 1-2 hashtag se pertinenti.' if add_hashtags else ''}"
+    )
 
     rules = """
 Regole generali:
