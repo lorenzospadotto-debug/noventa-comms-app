@@ -23,11 +23,16 @@
         </div>
       </div>
 
+      <div class="flex items-center gap-2">
+        <input id="auto_statement" type="checkbox" name="auto_statement" class="checkbox" {% if settings.auto_statement %}checked{% endif %}>
+        <label for="auto_statement" class="text-sm">Aggiungi sempre una mia <strong>dichiarazione</strong> (AI) al testo generato</label>
+      </div>
+
       <div><label class="label">Emoji</label><input name="emoji" class="input" value="{{ settings.emoji }}"></div>
     </section>
 
     <section class="card space-y-3">
-      <h2 class="text-lg font-semibold">Collegamenti (per comodità)</h2>
+      <h2 class="text-lg font-semibold">Collegamenti (facoltativi)</h2>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div><label class="label">Facebook (URL pagina)</label><input name="facebook_url" class="input" value="{{ settings.social.facebook_url }}" placeholder="https://facebook.com/…"></div>
         <div><label class="label">Instagram (username)</label><input name="instagram_username" class="input" value="{{ settings.social.instagram_username }}" placeholder="nomeutente"></div>
