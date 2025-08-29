@@ -1,0 +1,13 @@
+{
+  "name": "",
+  "role": "",
+  "tone": "Istituzionale",
+  "emoji": "🏛️",
+  "channels": ["facebook", "instagram", "x", "website", "press"],
+  "social": {
+    "facebook_url": "",
+    "instagram_username": "",
+    "x_username": "",
+    "website_url": ""
+  }
+}
