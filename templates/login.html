@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VoxUp — Login</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen grid place-items-center bg-slate-50 text-slate-800">
+  <div class="bg-white p-6 rounded-xl shadow max-w-sm w-full">
+    <h1 class="text-xl font-semibold mb-3">Entra in VoxUp</h1>
+    <form method="post" action="/login" class="space-y-3">
+      <label class="block">
+        <span class="text-sm font-medium">PIN (6 cifre)</span>
+        <input class="mt-1 w-full border rounded-lg px-3 py-2" name="pin" inputmode="numeric" maxlength="6" placeholder="es. 246810" required>
+      </label>
+      {% if error %}<div class="text-sm text-red-600">{{ error }}</div>{% endif %}
+      <button class="w-full bg-orange-600 hover:bg-orange-700 text-white rounded-lg py-2">Accedi</button>
+    </form>
+    <p class="text-xs text-slate-500 mt-3">Imposta il PIN come variabile d'ambiente <code>ADMIN_PIN</code> su Render.</p>
+  </div>
+</body>
+</html>
