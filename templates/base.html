@@ -8,11 +8,7 @@
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script defer src="/static/js/app.js"></script>
     <style>
-      :root{
-        --vox-bg:#F5EFE3;        /* beige del logo */
-        --vox-ink:#0F172A;       /* blu scurissimo */
-        --vox-primary:#E9542B;   /* arancio/rosso megafono */
-      }
+      :root{ --vox-bg:#F5EFE3; --vox-ink:#0F172A; --vox-primary:#E9542B; }
       body{background:var(--vox-bg); color:var(--vox-ink);}
       .nav-link{display:block;padding:.5rem .75rem;border-radius:.75rem;color:#334155;text-decoration:none}
       .nav-link:hover{background:#f1f5f9}
@@ -29,22 +25,35 @@
       .grid-cards{display:grid;gap:1rem}
       @media(min-width:768px){.grid-cards{gap:1.5rem;grid-template-columns:repeat(2,minmax(0,1fr))}}
       @media(min-width:1280px){.grid-cards{grid-template-columns:repeat(3,minmax(0,1fr))}}
+      /* spinner overlay */
+      .overlay{position:fixed;inset:0;background:rgba(255,255,255,.65);backdrop-filter:blur(1px);display:none;align-items:center;justify-content:center;z-index:50}
+      .overlay.show{display:flex}
+      .spinner{width:42px;height:42px;border:4px solid #e5e7eb;border-top-color:var(--vox-primary);border-radius:50%;animation:spin 1s linear infinite}
+      @keyframes spin{to{transform:rotate(360deg)}}
     </style>
   </head>
-  <body>
+  <body x-data="{loading:false}">
+    <!-- loading overlay -->
+    <div class="overlay" :class="{ 'show': loading }">
+      <div class="spinner"></div>
+    </div>
+
     <div class="min-h-screen grid grid-cols-1 md:grid-cols-[260px_1fr]">
-      <aside class="bg-white md:border-r border-slate-200">
+      <aside class="bg-white md:border-r border-slate-200 flex flex-col">
         <div class="p-5 border-b border-slate-200 flex items-center gap-3">
           <img src="/static/img/logo.png" alt="VoxUp" class="h-7 w-auto" onerror="this.style.display='none'">
           <a href="/" class="text-xl font-bold">VoxUp</a>
         </div>
-        <nav class="p-3 space-y-1">
-          <a href="/" class="nav-link">🏠 Home</a>
-          <a href="/profile" class="nav-link">👤 Profilo</a>
-          <a href="/generate" class="nav-link">🧠 Genera Testi</a>
-          <a href="/upload" class="nav-link">📄 Upload</a>
+
+        <nav class="p-3 space-y-1 flex-1">
+          <a href="/" class="nav-link">🏁 Inizia (Onboarding)</a>
+          <a href="/compose" class="nav-link">🧠 Upload & Genera</a>
+          <a href="/style" class="nav-link">✍️ Stile</a>
         </nav>
-        <div class="mt-auto p-4 text-xs text-slate-500 hidden md:block">v1 • VoxUp</div>
+
+        <div class="p-3 border-t border-slate-200">
+          <a href="/profile" class="nav-link">👤 Profilo</a>
+        </div>
       </aside>
 
       <main class="p-4 md:p-8">
@@ -56,18 +65,9 @@
                 {% if settings %}{{ (settings.first_name ~ ' ' ~ settings.last_name)|trim }}{% else %}Nome Cognome{% endif %}
               </div>
               <div class="text-xs text-slate-600">
-                {{ settings.role or "Ruolo" }} •
-                {{ (settings.tones|join(', ')) if settings and settings.tones else "Toni" }}
+                {{ settings.role or "Ruolo" }} • {{ (settings.tones|join(', ')) if settings and settings.tones else "Toni" }}
               </div>
             </div>
-          </div>
-          <div class="hidden md:flex items-center gap-2 text-sm">
-            {% if settings and settings.social %}
-              {% if settings.social.facebook_url %}<a class="btn-secondary" target="_blank" href="{{ settings.social.facebook_url }}">Facebook</a>{% endif %}
-              {% if settings.social.instagram_username %}<a class="btn-secondary" target="_blank" href="https://instagram.com/{{ settings.social.instagram_username }}">Instagram</a>{% endif %}
-              {% if settings.social.x_username %}<a class="btn-secondary" target="_blank" href="https://x.com/{{ settings.social.x_username }}">X</a>{% endif %}
-              {% if settings.social.website_url %}<a class="btn-secondary" target="_blank" href="{{ settings.social.website_url }}">Sito</a>{% endif %}
-            {% endif %}
           </div>
         </header>
 
