@@ -9,3 +9,4 @@ beautifulsoup4>=4.12
 lxml>=5.2
 pdfminer.six>=20240706
 python-docx>=1.1
+itsdangerous>=2.2
