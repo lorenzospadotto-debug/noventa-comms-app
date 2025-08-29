@@ -14,8 +14,8 @@
         <div class="border-2 border-dashed rounded-xl p-6 text-center"
              :class="{ 'border-[var(--vox-primary)] bg-white' : over, 'border-slate-300 bg-white' : !over }"
              @dragover.prevent="over=true" @dragleave.prevent="over=false" @drop.prevent="handleDrop($event)">
-          <p class="mb-2">Trascina qui un file (PDF, DOCX, TXT) oppure clicca</p>
-          <input type="file" name="file" class="hidden" x-ref="fileInput" />
+          <p class="mb-2">Trascina qui uno o più file (PDF, DOCX, TXT) oppure clicca</p>
+          <input type="file" name="files" class="hidden" x-ref="fileInput" multiple />
           <button type="button" class="btn-secondary" @click="$refs.fileInput.click()">Scegli file</button>
         </div>
 
@@ -24,6 +24,20 @@
           <a href="/" class="btn-secondary">Torna all'inizio</a>
         </div>
       </form>
+
+      {% if uploads_preview %}
+        <div class="pt-2">
+          <h3 class="font-semibold mb-2">Anteprima contenuti caricati</h3>
+          <ul class="space-y-2">
+            {% for u in uploads_preview %}
+              <li class="border rounded-lg p-3">
+                <div class="text-sm font-medium">{{ u.name }}</div>
+                <div class="text-xs text-slate-600 whitespace-pre-wrap">{{ u.snippet }}</div>
+              </li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
 
       {% if ai_text %}
       <div class="pt-2">
@@ -53,7 +67,7 @@
           </div>
         {% endfor %}
       {% else %}
-        <div class="card"><div class="text-slate-500">Nessuna anteprima ancora. Incolla testo, link o trascina un file.</div></div>
+        <div class="card"><div class="text-slate-500">Nessuna anteprima ancora. Incolla testo, link o trascina uno o più file.</div></div>
       {% endif %}
     </section>
   </div>
