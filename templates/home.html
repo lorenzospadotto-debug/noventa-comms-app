@@ -17,7 +17,7 @@
       </div>
 
       <div>
-        <div class="label">3) Tono delle comunicazioni (scegline più di uno)</div>
+        <div class="label">3) Tono (scegline più di uno)</div>
         {% set opts = ["Istituzionale","Empatico","Energico","Inclusivo","Determinato","Conciliante","Visionario","Pragmatico","Tecnico","Vicino al territorio"] %}
         <div class="grid grid-cols-2 gap-2">
           {% for t in opts %}
@@ -34,7 +34,7 @@
       </div>
 
       <div>
-        <div class="label">4) Seleziona per cosa vuoi i testi</div>
+        <div class="label">4) Per cosa vuoi i testi</div>
         {% set L = {"facebook":"Facebook","instagram":"Instagram","x":"X (Twitter)","website":"Sito","press":"Stampa"} %}
         <div class="grid grid-cols-2 gap-2">
           {% for key,label in L.items() %}
