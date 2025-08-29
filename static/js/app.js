@@ -2,8 +2,7 @@ function copyText(el){
   const range = document.createRange();
   range.selectNodeContents(el);
   const sel = window.getSelection();
-  sel.removeAllRanges();
-  sel.addRange(range);
+  sel.removeAllRanges(); sel.addRange(range);
   try { document.execCommand('copy'); } catch (e) {}
   sel.removeAllRanges();
 }
@@ -11,7 +10,7 @@ function copyText(el){
 function dragDrop(){
   return {
     over:false,
-    startLoading(ev){
+    startLoading(){
       const root = document.querySelector('body');
       if(root && root.__x){ root.__x.$data.loading = true; }
     },
