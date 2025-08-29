@@ -1,63 +1,89 @@
-<!DOCTYPE html>
-<html lang="it">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>VoxUp — Ufficio Stampa</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <script defer src="/static/js/app.js"></script>
-    <style>
-      :root{ --vox-bg:#F5EFE3; --vox-ink:#0F172A; --vox-primary:#E9542B; }
-      body{background:var(--vox-bg); color:var(--vox-ink);}
-      .nav-link{display:block;padding:.5rem .75rem;border-radius:.75rem;color:#334155;text-decoration:none}
-      .nav-link:hover{background:#f1f5f9}
-      .card{background:#fff;border-radius:1rem;box-shadow:0 1px 2px rgba(0,0,0,.04);border:1px solid #e2e8f0;padding:1rem}
-      @media(min-width:768px){.card{padding:1.5rem}}
-      .btn-primary{display:inline-flex;align-items:center;justify-content:center;border-radius:.75rem;padding:.5rem 1rem;background:var(--vox-primary);color:#fff}
-      .btn-primary:hover{filter:brightness(.95)}
-      .btn-secondary{display:inline-flex;align-items:center;justify-content:center;border-radius:.75rem;padding:.375rem .75rem;background:#f1f5f9;color:#334155}
-      .btn-secondary:hover{background:#e2e8f0}
-      .input{width:100%;border-radius:.75rem;border:1px solid #cbd5e1;padding:.5rem .75rem;background:#fff}
-      .input:focus{outline:none;box-shadow:0 0 0 2px rgba(233,84,43,.25);border-color:var(--vox-primary)}
-      .label{font-size:.875rem;font-weight:600;color:#334155;margin-bottom:.25rem;display:block}
-      .checkbox{width:1rem;height:1rem}
-      /* spinner overlay */
-      .overlay{position:fixed;inset:0;background:rgba(255,255,255,.65);backdrop-filter:blur(1px);display:none;align-items:center;justify-content:center;z-index:50}
-      .overlay.show{display:flex}
-      .spinner{width:42px;height:42px;border:4px solid #e5e7eb;border-top-color:var(--vox-primary);border-radius:50%;animation:spin 1s linear infinite}
-      @keyframes spin{to{transform:rotate(360deg)}}
-    </style>
-  </head>
-  <body x-data="{loading:false}">
-    <div class="overlay" :class="{ 'show': loading }">
-      <!-- Se carichi /static/img/loading.gif la mostriamo, altrimenti spinner CSS -->
-      <img src="/static/img/loading.gif" class="w-12 h-12" onerror="this.style.display='none'">
-      <div class="spinner"></div>
-    </div>
+<!doctype html>
+<html lang="it" class="h-full bg-gray-50">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ app_name }} • VoxUp</title>
+  <meta name="color-scheme" content="light only">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <link rel="icon" href="https://fav.farm/🎙️">
+  <style>
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; z-index: 60; }
+    .overlay.show { display: flex; }
+    .sr-only-focusable:focus { position: static; width: auto; height: auto; margin: 0; overflow: visible; clip: auto; }
+  </style>
+</head>
+<body class="h-full text-gray-900">
+  <a href="#main" class="sr-only sr-only-focusable focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-600">
+    Salta al contenuto
+  </a>
 
-    <div class="min-h-screen grid grid-cols-1 md:grid-cols-[260px_1fr]">
-      <aside class="bg-white md:border-r border-slate-200 flex flex-col">
-        <div class="p-5 border-b border-slate-200 flex items-center gap-3">
-          <img src="/static/img/logo.png" alt="VoxUp" class="h-7 w-auto" onerror="this.style.display='none'">
-          <a href="/" class="text-xl font-bold">VoxUp</a>
+  <div class="min-h-full">
+    <div class="grid grid-cols-12 gap-0">
+      <aside class="col-span-12 md:col-span-3 lg:col-span-2 bg-white border-r border-gray-200">
+        <div class="p-4">
+          <div class="flex items-center gap-2">
+            <span class="text-2xl">🎙️</span>
+            <div>
+              <div class="font-bold text-lg">{{ app_name }}</div>
+              <div class="text-xs text-gray-500">Ufficio stampa politico</div>
+            </div>
+          </div>
+
+          {% set path = request.url.path %}
+          <nav class="mt-6 space-y-1">
+            {% if request.session.get('auth') %}
+              <a href="/" class="block px-3 py-2 rounded-lg font-medium {% if path=='/' %}bg-indigo-50 text-indigo-700{% else %}text-gray-700 hover:bg-gray-100{% endif %}">Onboarding</a>
+              <a href="/compose" class="block px-3 py-2 rounded-lg font-medium {% if path.startswith('/compose') %}bg-indigo-50 text-indigo-700{% else %}text-gray-700 hover:bg-gray-100{% endif %}">Upload & Genera</a>
+              <a href="/style" class="block px-3 py-2 rounded-lg font-medium {% if path.startswith('/style') %}bg-indigo-50 text-indigo-700{% else %}text-gray-700 hover:bg-gray-100{% endif %}">Stile</a>
+              <a href="/profile" class="block px-3 py-2 rounded-lg font-medium {% if path.startswith('/profile') %}bg-indigo-50 text-indigo-700{% else %}text-gray-700 hover:bg-gray-100{% endif %}">Profilo</a>
+              <a href="/drafts" class="block px-3 py-2 rounded-lg font-medium {% if path.startswith('/drafts') %}bg-indigo-50 text-indigo-700{% else %}text-gray-700 hover:bg-gray-100{% endif %}">Bozze</a>
+            {% else %}
+              <a href="/login" class="block px-3 py-2 rounded-lg font-medium {% if path.startswith('/login') %}bg-indigo-50 text-indigo-700{% else %}text-gray-700 hover:bg-gray-100{% endif %}">Login</a>
+              <a href="/register" class="block px-3 py-2 rounded-lg font-medium {% if path.startswith('/register') %}bg-indigo-50 text-indigo-700{% else %}text-gray-700 hover:bg-gray-100{% endif %}">Registrati</a>
+            {% endif %}
+          </nav>
+
+          <div class="mt-6 p-3 rounded-lg bg-gray-50 border text-sm">
+            <div class="font-medium mb-2">Dimensioni testo</div>
+            <div class="flex gap-2">
+              <button type="button" id="font-dec" class="px-2 py-1 border rounded">A-</button>
+              <button type="button" id="font-inc" class="px-2 py-1 border rounded">A+</button>
+            </div>
+            <div class="text-xs text-gray-500 mt-2">Preferenza salvata sul dispositivo.</div>
+          </div>
         </div>
 
-        <nav class="p-3 space-y-1 flex-1">
-          <a href="/" class="nav-link">🏁 Inizia</a>
-          <a href="/compose" class="nav-link">🧠 Upload & Genera</a>
-          <a href="/style" class="nav-link">✍️ Stile</a>
-        </nav>
-
-        <div class="p-3 border-t border-slate-200">
-          <a href="/profile" class="nav-link">👤 Profilo</a>
-          <a href="/logout" class="nav-link">🔓 Esci</a>
+        <div class="px-4 py-4 border-t border-gray-200 flex items-center justify-between">
+          {% if request.session.get('auth') %}
+            <div class="text-sm text-gray-600 truncate">👤 {{ request.session.get('user', {}).get('name','') }}</div>
+            <a href="/logout" class="text-sm text-gray-600 hover:text-gray-900">Esci</a>
+          {% else %}
+            <span class="text-xs text-gray-400">Non autenticato</span>
+          {% endif %}
+          <span class="text-xs text-gray-400">v0.3</span>
         </div>
       </aside>
 
-      <main class="p-4 md:p-8">
-        {% block content %}{% endblock %}
+      <main id="main" class="col-span-12 md:col-span-9 lg:col-span-10">
+        <div class="max-w-5xl mx-auto p-4 md:p-8">
+          {% block content %}{% endblock %}
+        </div>
       </main>
     </div>
-  </body>
+  </div>
+
+  <div id="overlay" class="overlay" role="alert" aria-live="assertive" aria-busy="true">
+    <div class="bg-white rounded-xl p-6 shadow-xl text-center">
+      <svg class="animate-spin mx-auto h-10 w-10" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" opacity="0.25"></circle>
+        <path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="4"></path>
+      </svg>
+      <p class="mt-3 font-medium">Elaborazione in corso…</p>
+    </div>
+  </div>
+
+  <script src="/static/main.js"></script>
+</body>
 </html>
