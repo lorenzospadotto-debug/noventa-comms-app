@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="text-2xl font-bold">Registrazione</h1>
+<p class="text-gray-600 mt-1">Crea il tuo account per usare VoxUp.</p>
+
+<form method="post" action="/register" class="mt-6 grid gap-4" onsubmit="showOverlay()">
+  <label class="block">
+    <span class="text-sm font-medium">Nome e Cognome</span>
+    <input type="text" name="name" required class="mt-1 w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-indigo-600">
+  </label>
+  <label class="block">
+    <span class="text-sm font-medium">Ruolo (es. Sindaco, Assessore)</span>
+    <input type="text" name="role" class="mt-1 w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-indigo-600">
+  </label>
+  <label class="block">
+    <span class="text-sm font-medium">Email</span>
+    <input type="email" name="email" required class="mt-1 w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-indigo-600">
+  </label>
+  <label class="block">
+    <span class="text-sm font-medium">Password</span>
+    <input type="password" name="password" required minlength="6" class="mt-1 w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-indigo-600">
+  </label>
+  <label class="block">
+    <span class="text-sm font-medium">Conferma Password</span>
+    <input type="password" name="password2" required minlength="6" class="mt-1 w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-indigo-600">
+  </label>
+  {% if error %}<div class="text-red-600 text-sm">{{ error }}</div>{% endif %}
+  <div class="flex items-center gap-3">
+    <button class="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold">Crea account</button>
+    <a class="text-sm underline" href="/login">Hai già un account? Accedi</a>
+  </div>
+</form>
+{% endblock %}
