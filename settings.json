@@ -1,13 +1,16 @@
 {
-  "name": "",
+  "first_name": "",
+  "last_name": "",
   "role": "",
-  "tone": "Istituzionale",
-  "emoji": "🏛️",
-  "channels": ["facebook", "instagram", "x", "website", "press"],
+  "tones": ["Istituzionale"],
+  "tone_other": "",
+  "emoji": "📣",
+  "channels": ["facebook","instagram","x","website","press"],
   "social": {
     "facebook_url": "",
     "instagram_username": "",
     "x_username": "",
-    "website_url": ""
+    "website_url": "",
+    "can_publish": false
   }
 }
