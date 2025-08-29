@@ -3,65 +3,36 @@
   <form method="post" class="grid gap-6 md:grid-cols-2">
     <section class="card space-y-3">
       <h2 class="text-lg font-semibold">Dettagli profilo</h2>
-
       <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div>
-          <label class="label">Nome</label>
-          <input name="first_name" class="input" value="{{ settings.first_name }}" />
-        </div>
-        <div>
-          <label class="label">Cognome</label>
-          <input name="last_name" class="input" value="{{ settings.last_name }}" />
-        </div>
+        <div><label class="label">Nome</label><input name="first_name" class="input" value="{{ settings.first_name }}"></div>
+        <div><label class="label">Cognome</label><input name="last_name" class="input" value="{{ settings.last_name }}"></div>
       </div>
-
-      <div>
-        <label class="label">Ruolo</label>
-        <input name="role" class="input" value="{{ settings.role }}" placeholder="Sindaco, Onorevole, Consigliere…" />
-      </div>
+      <div><label class="label">Ruolo</label><input name="role" class="input" value="{{ settings.role }}" placeholder="Sindaco, Onorevole, Consigliere…"></div>
 
       <div>
         <label class="label">Tono (scegline più di uno)</label>
         {% set opts = ["Istituzionale","Empatico","Energico","Inclusivo","Determinato","Conciliante","Visionario","Pragmatico","Tecnico","Vicino al territorio"] %}
         <div class="grid grid-cols-2 gap-2">
           {% for t in opts %}
-            <label class="flex items-center gap-2 text-sm">
-              <input type="checkbox" name="tones" value="{{ t }}" class="checkbox" {% if settings.tones and t in settings.tones %}checked{% endif %}/>
-              <span>{{ t }}</span>
-            </label>
+            <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="tones" value="{{ t }}" class="checkbox" {% if settings.tones and t in settings.tones %}checked{% endif %}> <span>{{ t }}</span></label>
           {% endfor %}
         </div>
         <div class="mt-2 flex items-center gap-2">
           <span class="text-sm text-slate-600">Altro:</span>
-          <input name="tone_other" class="input" value="{{ settings.tone_other }}" placeholder="es. concreto, europeista…" />
+          <input name="tone_other" class="input" value="{{ settings.tone_other }}" placeholder="es. concreto, europeista…">
         </div>
       </div>
 
-      <div>
-        <label class="label">Emoji</label>
-        <input name="emoji" class="input" value="{{ settings.emoji }}" />
-      </div>
+      <div><label class="label">Emoji</label><input name="emoji" class="input" value="{{ settings.emoji }}"></div>
     </section>
 
     <section class="card space-y-3">
-      <h2 class="text-lg font-semibold">Connessione canali</h2>
+      <h2 class="text-lg font-semibold">Collegamenti (per comodità)</h2>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div>
-          <label class="label">Facebook (URL pagina)</label>
-          <input name="facebook_url" class="input" value="{{ settings.social.facebook_url }}" placeholder="https://facebook.com/…" />
-        </div>
-        <div>
-          <label class="label">Instagram (username)</label>
-          <input name="instagram_username" class="input" value="{{ settings.social.instagram_username }}" placeholder="nomeutente" />
-        </div>
-        <div>
-          <label class="label">X (username)</label>
-          <input name="x_username" class="input" value="{{ settings.social.x_username }}" placeholder="nomeutente" />
-        </div>
-        <div>
-          <label class="label">Sito (URL)</label>
-          <input name="website_url" class="input" value="{{ settings.social.website_url }}" placeholder="https://…" />
-        </div>
+        <div><label class="label">Facebook (URL pagina)</label><input name="facebook_url" class="input" value="{{ settings.social.facebook_url }}" placeholder="https://facebook.com/…"></div>
+        <div><label class="label">Instagram (username)</label><input name="instagram_username" class="input" value="{{ settings.social.instagram_username }}" placeholder="nomeutente"></div>
+        <div><label class="label">X (username)</label><input name="x_username" class="input" value="{{ settings.social.x_username }}" placeholder="nomeutente"></div>
+        <div><label class="label">Sito (URL)</label><input name="website_url" class="input" value="{{ settings.social.website_url }}" placeholder="https://…"></div>
       </div>
 
       <div class="pt-2">
@@ -70,21 +41,16 @@
         <div class="grid grid-cols-2 gap-2">
           {% for key,label in L.items() %}
             <label class="flex items-center gap-2 text-sm">
-              <input type="checkbox" name="channels" value="{{ key }}" class="checkbox" {% if key in settings.channels %}checked{% endif %} />
+              <input type="checkbox" name="channels" value="{{ key }}" class="checkbox" {% if key in settings.channels %}checked{% endif %}>
               <span>{{ label }}</span>
             </label>
           {% endfor %}
         </div>
       </div>
 
-      <div class="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
-        <strong>Nota:</strong> inserire solo l'URL della pagina Facebook <u>non</u> abilita la pubblicazione automatica.
-        Per pubblicare servirà l'integrazione OAuth (Facebook Login + permessi <code>pages_manage_posts</code>, <code>pages_show_list</code>, ecc.). Per ora usiamo i link per accesso rapido.
-      </div>
-
       <div class="flex gap-2 pt-2">
         <button class="btn-primary" type="submit">Salva profilo</button>
-        <a href="/" class="btn-secondary">Annulla</a>
+        <a href="/compose" class="btn-secondary">Vai a Upload & Genera</a>
       </div>
     </section>
   </form>
