@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <section class="card">
-  <h2>Profilo</h2>
+  <h2>Profilo utente</h2>
   <form action="/profile" method="post">
     <div class="grid">
       <div>
@@ -32,10 +32,59 @@
 
     <label class="row">
       <input type="checkbox" name="use_emojis" {{ 'checked' if settings.use_emojis else '' }} />
-      Usa emoji nei post social (max 1–2, mai nel comunicato)
+      Usa emoji nei post social (max 1–2; mai nel comunicato o nel sito)
     </label>
+</section>
 
-    <button type="submit">Salva profilo</button>
+<section class="card">
+  <h2>Connessione profili social</h2>
+  <p class="muted">Inserisci le credenziali/token delle API. I dati vengono salvati solo in questo servizio.</p>
+
+  <h3>Facebook (Pagina)</h3>
+  <div class="grid">
+    <div>
+      <label>FB_PAGE_ID</label>
+      <input type="text" name="fb_page_id" value="{{ settings.fb_page_id }}" />
+    </div>
+    <div>
+      <label>FB_PAGE_ACCESS_TOKEN</label>
+      <input type="text" name="fb_page_access_token" value="{{ settings.fb_page_access_token }}" />
+    </div>
+  </div>
+
+  <h3>Instagram Business</h3>
+  <div class="grid">
+    <div>
+      <label>IG_USER_ID</label>
+      <input type="text" name="ig_user_id" value="{{ settings.ig_user_id }}" />
+    </div>
+  </div>
+
+  <h3>LinkedIn (opzionale)</h3>
+  <div class="grid">
+    <div>
+      <label>LINKEDIN_ACCESS_TOKEN</label>
+      <input type="text" name="linkedin_access_token" value="{{ settings.linkedin_access_token }}" />
+    </div>
+    <div>
+      <label>LINKEDIN_ORG_ID (per pagine)</label>
+      <input type="text" name="linkedin_org_id" value="{{ settings.linkedin_org_id }}" />
+    </div>
+  </div>
+
+  <h3>X (Twitter) — opzionale</h3>
+  <div class="grid">
+    <div>
+      <label>X_BEARER_TOKEN</label>
+      <input type="text" name="x_bearer_token" value="{{ settings.x_bearer_token }}" />
+    </div>
+    <div>
+      <label>X_USER_ID</label>
+      <input type="text" name="x_user_id" value="{{ settings.x_user_id }}" />
+    </div>
+  </div>
+
+  <button type="submit">Salva profilo</button>
   </form>
 </section>
 {% endblock %}
