@@ -183,8 +183,9 @@ def split_into_posts(text: str, limit: int = 280) -> List[str]:
 
 
 def save_draft(entry: Dict[str, Any]) -> None:
+    """Aggiunge una bozza su file JSON, massimo 50 elementi."""
     try:
-        with open(DRAFTS_PATH, "r", encoding="utf-8") open as f:
+        with open(DRAFTS_PATH, "r", encoding="utf-8") as f:
             arr = json.load(f)
     except Exception:
         arr = []
