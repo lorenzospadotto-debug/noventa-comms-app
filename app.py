@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import json, os, re, logging, requests
+import json, os, re, logging, requests, secrets
 from io import BytesIO
 from pathlib import Path
 from typing import Dict, List, Any, Optional
@@ -10,6 +10,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.status import HTTP_303_SEE_OTHER
+from starlette.middleware.sessions import SessionMiddleware
 
 # --- AI client opzionale (usa OPENAI_API_KEY se presente) ---
 try:
@@ -37,6 +38,7 @@ TEMPLATES_DIR.mkdir(parents=True, exist_ok=True)
 (STATIC_DIR / "js").mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="VoxUp — Ufficio Stampa Politico")
+app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY", "change-me"))
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
@@ -57,7 +59,8 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
         "x_username": "",
         "website_url": "",
     },
-    "style_examples": ""  # testo incollato dall'utente per imitare lo stile
+    "style_examples": "",
+    "auto_statement": False  # aggiunge sempre una dichiarazione AI
 }
 
 def load_settings() -> Dict[str, Any]:
@@ -67,7 +70,7 @@ def load_settings() -> Dict[str, Any]:
     try:
         data = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
         merged = DEFAULT_SETTINGS.copy()
-        for k in ["first_name","last_name","role","tones","tone_other","emoji","channels","style_examples"]:
+        for k in ["first_name","last_name","role","tones","tone_other","emoji","channels","style_examples","auto_statement"]:
             if k in data: merged[k] = data[k]
         social = DEFAULT_SETTINGS["social"].copy(); social.update(data.get("social", {}))
         merged["social"] = social
@@ -79,6 +82,17 @@ def load_settings() -> Dict[str, Any]:
 
 def save_settings(data: Dict[str, Any]) -> None:
     SETTINGS_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+# =================================
+# Helpers auth
+# =================================
+def is_authed(request: Request) -> bool:
+    return bool(request.session.get("authed"))
+
+def require_auth(request: Request) -> Optional[RedirectResponse]:
+    if not is_authed(request):
+        return RedirectResponse(url="/login", status_code=HTTP_303_SEE_OTHER)
+    return None
 
 # =================================
 # Formatting utilities
@@ -110,7 +124,7 @@ def format_for_press(text: str) -> str:
 CHANNEL_LABELS = {"facebook":"Facebook","instagram":"Instagram","x":"X (Twitter)","website":"Sito","press":"Stampa"}
 
 # =================================
-# AI rewriter
+# AI helpers
 # =================================
 def ai_rewrite(base_text: str, settings: Dict[str, Any]) -> str:
     if not base_text.strip(): return ""
@@ -124,8 +138,8 @@ def ai_rewrite(base_text: str, settings: Dict[str, Any]) -> str:
         "Sei l'ufficio stampa di un politico italiano. Riscrivi il testo in modo chiaro, sintetico e coerente con i canali. "
         "Mantieni i fatti, proponi un titolo, un abstract (3-4 frasi) e 3 bullet chiave. "
         f"Persona: {persona or 'N/D'} — Ruolo: {role or 'N/D'}. "
-        f"Toni: {', '.join(tones)}{(' + ' + tone_other) if tone_other else ''}. "
-        + ("Ispìrati allo stile seguente se utile:\n---\n" + style + "\n---\n" if style else "") +
+        f"Toni: {', '.join(tones)}{(' + ' + tone_other) if tone_other else ''}. " +
+        ("Ispirati allo stile seguente se utile:\n---\n" + style + "\n---\n" if style else "") +
         "Usa markdown per il **grassetto**. Rispondi in italiano solo con il testo finale."
     )
 
@@ -149,6 +163,34 @@ def ai_rewrite(base_text: str, settings: Dict[str, Any]) -> str:
     # Fallback locale
     text = re.sub(r"\s+"," ",base_text).strip()
     return f"**Titolo provvisorio**\n\n{text}\n\n**Punti chiave**\n- Punto 1\n- Punto 2\n- Punto 3"
+
+def ai_statement(topic_text: str, settings: Dict[str, Any]) -> str:
+    persona = f"{settings.get('first_name','').strip()} {settings.get('last_name','').strip()}".strip()
+    role = settings.get("role","").strip()
+    style = (settings.get("style_examples") or "").strip()
+    base_prompt = (
+        "Scrivi una breve dichiarazione (1-2 frasi) in prima persona, tono istituzionale, adatta ai media, con virgolette italiane. "
+        f"Parla come {persona or 'il/lla politico/a'} ({role or 'ruolo'}). "
+        "Sii chiaro e positivo. Testo di riferimento: "
+    )
+    api_key = os.getenv("OPENAI_API_KEY")
+    if OpenAI and api_key:
+        try:
+            client = OpenAI(api_key=api_key)
+            resp = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role":"system","content":"Sei un portavoce che scrive citazioni brevi e incisive."},
+                    {"role":"user","content": base_prompt + topic_text + (("\nStile esempio:\n"+style) if style else "")},
+                ],
+                temperature=0.6,
+                max_tokens=120,
+            )
+            return (resp.choices[0].message.content or "").strip().strip()
+        except Exception:
+            pass
+    # fallback semplice
+    return f"«Con questo intervento confermiamo il nostro impegno per la comunità.»"
 
 # =================================
 # Extractors (file & url)
@@ -185,31 +227,66 @@ def extract_text_from_url(url: str) -> str:
 # =================================
 # Helpers — previews per canale
 # =================================
-def build_previews(raw_text: str, settings: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+def build_previews(raw_text: str, settings: Dict[str, Any], statement_text: str | None = None) -> Dict[str, Dict[str, Any]]:
     chosen = settings.get("channels", [])
     previews: Dict[str, Dict[str, Any]] = {}
     for ch in chosen:
+        base = raw_text
+        if settings.get("auto_statement") and statement_text:
+            if ch in ("website","press"):
+                base += f"\n\n<em>Dichiarazione:</em> {statement_text}"
+            else:
+                base += f"\n\n{statement_text}"
         if ch in ("facebook","instagram","x"):
-            formatted = format_for_social(raw_text); char_limit = 280 if ch=="x" else None
+            formatted = format_for_social(base); char_limit = 280 if ch=="x" else None
         elif ch == "website":
-            formatted = format_for_website(raw_text); char_limit = None
+            formatted = format_for_website(base); char_limit = None
         elif ch == "press":
-            formatted = format_for_press(raw_text); char_limit = None
+            formatted = format_for_press(base); char_limit = None
         else:
-            formatted = raw_text; char_limit = None
+            formatted = base; char_limit = None
         previews[ch] = {"formatted": formatted, "char_limit": char_limit, "length": len(formatted), "label": CHANNEL_LABELS.get(ch, ch.title())}
     return previews
 
 # =================================
-# Routes — onboarding (Home)
+# ROUTES — Login / Logout
+# =================================
+@app.get("/login", response_class=HTMLResponse)
+def login_get(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request})
+
+@app.post("/login")
+def login_post(request: Request, pin: str = Form("")):
+    admin_pin = os.getenv("ADMIN_PIN", "123456")
+    if pin.strip() == admin_pin:
+        request.session["authed"] = True
+        # se profilo incompleto, vai al wizard, altrimenti compose
+        s = load_settings()
+        target = "/"
+        if not (s.get("first_name") and s.get("last_name")):
+            target = "/"
+        else:
+            target = "/compose"
+        return RedirectResponse(url=target, status_code=HTTP_303_SEE_OTHER)
+    return templates.TemplateResponse("login.html", {"request": request, "error": "PIN errato. Riprova."})
+
+@app.get("/logout")
+def logout(request: Request):
+    request.session.clear()
+    return RedirectResponse(url="/login", status_code=HTTP_303_SEE_OTHER)
+
+# =================================
+# ROUTES — onboarding (Home)
 # =================================
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
+    if (redir := require_auth(request)): return redir
     settings = load_settings()
     return templates.TemplateResponse("home.html", {"request": request, "settings": settings, "channel_labels": CHANNEL_LABELS})
 
 @app.post("/onboarding", response_class=HTMLResponse)
 async def onboarding_post(
+    request: Request,
     first_name: str = Form(""),
     last_name: str = Form(""),
     role: str = Form(""),
@@ -217,6 +294,7 @@ async def onboarding_post(
     tone_other: str = Form(""),
     channels: List[str] = Form([]),
 ):
+    if (redir := require_auth(request)): return redir
     data = load_settings()
     data.update({
         "first_name": first_name.strip(),
@@ -230,10 +308,11 @@ async def onboarding_post(
     return RedirectResponse(url="/compose", status_code=HTTP_303_SEE_OTHER)
 
 # =================================
-# Routes — pagina unica Upload + Genera
+# ROUTES — pagina unica Upload + Genera (multi-file)
 # =================================
 @app.get("/compose", response_class=HTMLResponse)
 async def compose_get(request: Request):
+    if (redir := require_auth(request)): return redir
     return templates.TemplateResponse("compose.html", {"request": request, "settings": load_settings(), "channel_labels": CHANNEL_LABELS})
 
 @app.post("/compose", response_class=HTMLResponse)
@@ -241,26 +320,45 @@ async def compose_post(
     request: Request,
     source_text: str = Form(""),
     article_url: str = Form(""),
-    file: Optional[UploadFile] = File(None),
+    files: List[UploadFile] = File([]),
 ):
+    if (redir := require_auth(request)): return redir
     try:
-        base_text = source_text.strip()
-        if not base_text and file and file.filename:
-            content = await file.read()
-            base_text = extract_text_from_bytes(file.filename, content)
-        if not base_text and article_url:
-            base_text = extract_text_from_url(article_url)
+        parts: List[str] = []
+        uploads_preview: List[Dict[str, Any]] = []
+
+        if source_text.strip():
+            parts.append(source_text.strip())
+            uploads_preview.append({"name": "Testo incollato", "snippet": source_text.strip()[:200] + ("…" if len(source_text.strip())>200 else "")})
+
+        for f in files:
+            if not f or not f.filename: continue
+            content = await f.read()
+            text = extract_text_from_bytes(f.filename, content)
+            if text.strip():
+                parts.append(text)
+                uploads_preview.append({"name": f.filename, "snippet": text.strip()[:200] + ("…" if len(text.strip())>200 else "")})
+
+        if article_url.strip():
+            text = extract_text_from_url(article_url.strip())
+            if text.strip():
+                parts.append(text)
+                uploads_preview.append({"name": article_url.strip(), "snippet": text.strip()[:200] + ("…" if len(text.strip())>200 else "")})
+
+        base_text = "\n\n".join(parts).strip()
 
         if not base_text:
             raise HTTPException(status_code=400, detail="Nessun testo, file o URL valido")
 
         settings = load_settings()
         ai_text = ai_rewrite(base_text, settings)
-        previews = build_previews(ai_text, settings)
+        stmt = ai_statement(ai_text or base_text, settings) if settings.get("auto_statement") else None
+        previews = build_previews(ai_text, settings, statement_text=stmt)
         return templates.TemplateResponse(
             "compose.html",
             {"request": request, "settings": settings, "channel_labels": CHANNEL_LABELS,
-             "raw_text": base_text, "ai_text": ai_text, "previews": previews}
+             "raw_text": base_text, "ai_text": ai_text, "previews": previews,
+             "uploads_preview": uploads_preview}
         )
     except HTTPException:
         raise
@@ -269,14 +367,16 @@ async def compose_post(
         raise HTTPException(status_code=500, detail="Errore durante l'elaborazione")
 
 # =================================
-# Routes — Profilo e Stile
+# ROUTES — Profilo e Stile
 # =================================
 @app.get("/profile", response_class=HTMLResponse)
 async def profile_get(request: Request):
+    if (redir := require_auth(request)): return redir
     return templates.TemplateResponse("profile.html", {"request": request, "settings": load_settings(), "channel_labels": CHANNEL_LABELS})
 
 @app.post("/profile", response_class=HTMLResponse)
 async def profile_post(
+    request: Request,
     first_name: str = Form(""),
     last_name: str = Form(""),
     role: str = Form(""),
@@ -288,11 +388,14 @@ async def profile_post(
     x_username: str = Form(""),
     website_url: str = Form(""),
     channels: List[str] = Form([]),
+    auto_statement: Optional[str] = Form(None),
 ):
+    if (redir := require_auth(request)): return redir
     data = load_settings()
     data.update({
         "first_name": first_name, "last_name": last_name, "role": role,
-        "tones": tones or ["Istituzionale"], "tone_other": tone_other, "emoji": emoji
+        "tones": tones or ["Istituzionale"], "tone_other": tone_other, "emoji": emoji,
+        "auto_statement": bool(auto_statement)
     })
     data["social"] = {
         "facebook_url": facebook_url.strip(),
@@ -306,10 +409,12 @@ async def profile_post(
 
 @app.get("/style", response_class=HTMLResponse)
 async def style_get(request: Request):
+    if (redir := require_auth(request)): return redir
     return templates.TemplateResponse("style.html", {"request": request, "settings": load_settings()})
 
 @app.post("/style", response_class=HTMLResponse)
-async def style_post(style_examples: str = Form("")):
+async def style_post(request: Request, style_examples: str = Form("")):
+    if (redir := require_auth(request)): return redir
     data = load_settings()
     data["style_examples"] = style_examples
     save_settings(data)
