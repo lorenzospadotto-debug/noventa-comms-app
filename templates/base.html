@@ -44,20 +44,12 @@
               <a href="/register" class="block px-3 py-2 rounded-lg font-medium {% if path.startswith('/register') %}bg-indigo-50 text-indigo-700{% else %}text-gray-700 hover:bg-gray-100{% endif %}">Registrati</a>
             {% endif %}
           </nav>
-
-          <div class="mt-6 p-3 rounded-lg bg-gray-50 border text-sm">
-            <div class="font-medium mb-2">Dimensioni testo</div>
-            <div class="flex gap-2">
-              <button type="button" id="font-dec" class="px-2 py-1 border rounded">A-</button>
-              <button type="button" id="font-inc" class="px-2 py-1 border rounded">A+</button>
-            </div>
-            <div class="text-xs text-gray-500 mt-2">Preferenza salvata sul dispositivo.</div>
-          </div>
         </div>
 
         <div class="px-4 py-4 border-t border-gray-200 flex items-center justify-between">
           {% if request.session.get('auth') %}
-            <div class="text-sm text-gray-600 truncate">👤 {{ request.session.get('user', {}).get('name','') }}</div>
+            {% set u = (request.session.get('user') or {}) %}
+            <div class="text-sm text-gray-600 truncate">👤 {{ u.get('name','') }}</div>
             <a href="/logout" class="text-sm text-gray-600 hover:text-gray-900">Esci</a>
           {% else %}
             <span class="text-xs text-gray-400">Non autenticato</span>
@@ -84,6 +76,19 @@
     </div>
   </div>
 
-  <script src="/static/main.js"></script>
+  <script>
+    function showOverlay(){ document.getElementById('overlay').classList.add('show'); }
+    // Accessibilità: preferenza dimensione testo locale
+    const htmlEl = document.documentElement;
+    const saved = localStorage.getItem('voxup-fontsize');
+    if (saved) htmlEl.style.fontSize = saved;
+    addEventListener('DOMContentLoaded', () => {
+      const dec = document.getElementById('font-dec');
+      const inc = document.getElementById('font-inc');
+      function set(size){ htmlEl.style.fontSize = size; localStorage.setItem('voxup-fontsize', size); }
+      if (dec) dec.addEventListener('click', () => set('15px'));
+      if (inc) inc.addEventListener('click', () => set('18px'));
+    });
+  </script>
 </body>
 </html>
