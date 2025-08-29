@@ -1,23 +1,21 @@
-<!DOCTYPE html>
-<html lang="it">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VoxUp — Login</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="min-h-screen grid place-items-center bg-slate-50 text-slate-800">
-  <div class="bg-white p-6 rounded-xl shadow max-w-sm w-full">
-    <h1 class="text-xl font-semibold mb-3">Entra in VoxUp</h1>
-    <form method="post" action="/login" class="space-y-3">
-      <label class="block">
-        <span class="text-sm font-medium">PIN (6 cifre)</span>
-        <input class="mt-1 w-full border rounded-lg px-3 py-2" name="pin" inputmode="numeric" maxlength="6" placeholder="es. 246810" required>
-      </label>
-      {% if error %}<div class="text-sm text-red-600">{{ error }}</div>{% endif %}
-      <button class="w-full bg-orange-600 hover:bg-orange-700 text-white rounded-lg py-2">Accedi</button>
-    </form>
-    <p class="text-xs text-slate-500 mt-3">Imposta il PIN come variabile d'ambiente <code>ADMIN_PIN</code> su Render.</p>
+{% extends "base.html" %}
+{% block content %}
+<h1 class="text-2xl font-bold">Accedi</h1>
+<p class="text-gray-600 mt-1">Entra con email e password.</p>
+
+<form method="post" action="/login" class="mt-6 space-y-4" onsubmit="showOverlay()">
+  <label class="block">
+    <span class="text-sm font-medium">Email</span>
+    <input type="email" name="email" required class="mt-1 w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-indigo-600">
+  </label>
+  <label class="block">
+    <span class="text-sm font-medium">Password</span>
+    <input type="password" name="password" required class="mt-1 w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-indigo-600">
+  </label>
+  {% if error %}<div class="text-red-600 text-sm">{{ error }}</div>{% endif %}
+  <div class="flex items-center gap-3">
+    <button class="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold">Accedi</button>
+    <a class="text-sm underline" href="/register">Non hai un account? Registrati</a>
   </div>
-</body>
-</html>
+</form>
+{% endblock %}
