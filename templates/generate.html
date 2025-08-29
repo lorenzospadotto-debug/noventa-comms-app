@@ -4,10 +4,16 @@
     <section class="card">
       <h2 class="text-lg font-semibold mb-3">1) Scrivi o incolla il testo di partenza</h2>
       <form method="post" class="space-y-3">
-        <textarea name="raw_text" rows="8" class="input" placeholder="Usa **grassetto** e emoji come 👍, il resto lo adatto io ai canali.">{{ raw_text or "" }}</textarea>
+        <textarea name="raw_text" rows="8" class="input" placeholder="Usa **grassetto** e emoji. L'AI lo pulisce e lo adatta.">{{ raw_text or "" }}</textarea>
         <button class="btn-primary" type="submit">Genera anteprime</button>
       </form>
-      <p class="text-xs text-slate-500 mt-3">Suggerimento: tieni il testo neutro. Le regole si adattano ai canali selezionati nel profilo.</p>
+
+      {% if ai_text %}
+        <div class="mt-4">
+          <h3 class="font-semibold mb-2">Rielaborazione AI</h3>
+          <pre class="whitespace-pre-wrap text-sm">{{ ai_text }}</pre>
+        </div>
+      {% endif %}
     </section>
 
     <section class="space-y-4">
@@ -19,7 +25,7 @@
               {% if item.char_limit %}<span class="text-xs text-slate-500">{{ item.length }}/{{ item.char_limit }}</span>{% endif %}
             </div>
             {% if key in ["website", "press"] %}
-              <div class="max-w-none" x-ref="content">{{ item.formatted | safe }}</div>
+              <div x-ref="content">{{ item.formatted | safe }}</div>
             {% else %}
               <pre class="whitespace-pre-wrap text-sm" x-ref="content">{{ item.formatted }}</pre>
             {% endif %}
@@ -30,7 +36,7 @@
           </div>
         {% endfor %}
       {% else %}
-        <div class="card"><div class="text-slate-500">Nessuna anteprima ancora. Inserisci un testo e premi "Genera".</div></div>
+        <div class="card"><div class="text-slate-500">Nessuna anteprima ancora.</div></div>
       {% endif %}
     </section>
   </div>
