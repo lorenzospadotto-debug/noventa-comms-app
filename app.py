@@ -11,9 +11,7 @@ from fastapi.templating import Jinja2Templates
 from dotenv import load_dotenv
 
 from content_gen import extract_texts_from_files, generate_outputs
-from social_adapters import (
-    post_facebook, post_instagram, post_linkedin, post_x
-)
+from social_adapters import post_facebook, post_instagram, post_linkedin, post_x
 
 load_dotenv()
 
@@ -25,15 +23,25 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 DEFAULT_SETTINGS = {
     "display_name": os.getenv("MAYOR_NAME", "Claudio Marian"),
     "role": "Sindaco",
-    "tone": "istituzionale_vicino",  # istituzionale | istituzionale_vicino | colloquiale | tecnico
-    "use_emojis": False,
     "city_name": os.getenv("CITY_NAME", "Noventa di Piave"),
+    "tone": "istituzionale_vicino",            # istituzionale | istituzionale_vicino | colloquiale | tecnico
+    "use_emojis": True,                        # di default SÌ per i social
+    # Connessioni social (valori salvati dall’utente)
+    "fb_page_id": os.getenv("FB_PAGE_ID") or "",
+    "fb_page_access_token": os.getenv("FB_PAGE_ACCESS_TOKEN") or "",
+    "ig_user_id": os.getenv("IG_USER_ID") or "",
+    "linkedin_access_token": os.getenv("LINKEDIN_ACCESS_TOKEN") or "",
+    "linkedin_org_id": os.getenv("LINKEDIN_ORG_ID") or "",
+    "x_bearer_token": os.getenv("X_BEARER_TOKEN") or "",
+    "x_user_id": os.getenv("X_USER_ID") or "",
 }
 
 def load_settings():
     if SETTINGS_PATH.exists():
         try:
-            return json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+            merged = DEFAULT_SETTINGS.copy()
+            merged.update(json.loads(SETTINGS_PATH.read_text(encoding="utf-8")))
+            return merged
         except Exception:
             return DEFAULT_SETTINGS.copy()
     return DEFAULT_SETTINGS.copy()
@@ -47,15 +55,6 @@ app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
 BASE_PUBLIC_URL = os.getenv("BASE_PUBLIC_URL", "http://localhost:8000")
-
-# Social env
-FB_PAGE_ID = os.getenv("FB_PAGE_ID")
-FB_PAGE_ACCESS_TOKEN = os.getenv("FB_PAGE_ACCESS_TOKEN")
-IG_USER_ID = os.getenv("IG_USER_ID")
-LINKEDIN_ACCESS_TOKEN = os.getenv("LINKEDIN_ACCESS_TOKEN")
-LINKEDIN_ORG_ID = os.getenv("LINKEDIN_ORG_ID")
-X_BEARER_TOKEN = os.getenv("X_BEARER_TOKEN")
-X_USER_ID = os.getenv("X_USER_ID")
 
 
 @app.get("/")
@@ -89,13 +88,28 @@ async def profile_post(
     tone: str = Form(...),
     use_emojis: Optional[str] = Form(None),
     city_name: str = Form(...),
+    fb_page_id: str = Form(""),
+    fb_page_access_token: str = Form(""),
+    ig_user_id: str = Form(""),
+    linkedin_access_token: str = Form(""),
+    linkedin_org_id: str = Form(""),
+    x_bearer_token: str = Form(""),
+    x_user_id: str = Form(""),
 ):
     st = load_settings()
     st["display_name"] = display_name.strip() or st["display_name"]
     st["role"] = role.strip() or st["role"]
     st["tone"] = tone
-    st["use_emojis"] = bool(use_emojis)  # checkbox: 'on' or None
+    st["use_emojis"] = bool(use_emojis)  # checkbox
     st["city_name"] = city_name.strip() or st["city_name"]
+    # salva connessioni social
+    st["fb_page_id"] = fb_page_id.strip()
+    st["fb_page_access_token"] = fb_page_access_token.strip()
+    st["ig_user_id"] = ig_user_id.strip()
+    st["linkedin_access_token"] = linkedin_access_token.strip()
+    st["linkedin_org_id"] = linkedin_org_id.strip()
+    st["x_bearer_token"] = x_bearer_token.strip()
+    st["x_user_id"] = x_user_id.strip()
     save_settings(st)
     return RedirectResponse(url="/?msg=Profilo%20salvato", status_code=303)
 
@@ -109,10 +123,11 @@ async def generate(
     topics: str = Form(default=""),
     add_hashtags: bool = Form(default=True),
     add_call_to_action: bool = Form(default=True),
+    targets: List[str] = Form(default=[]),   # ← canali selezionati dall’utente
 ):
     try:
         st = load_settings()
-        # Save source files
+        # Salva file sorgenti
         saved_paths = []
         for f in source_files:
             if not f.filename:
@@ -123,7 +138,7 @@ async def generate(
                 w.write(await f.read())
             saved_paths.append(str(out))
 
-        # Save photo (if present)
+        # Foto
         photo_url = None
         photo_filename = None
         if photo and photo.filename:
@@ -134,10 +149,10 @@ async def generate(
             photo_filename = safe_name
             photo_url = f"{BASE_PUBLIC_URL}/uploads/{safe_name}"
 
-        # Extract text
+        # Estrai testo
         source_text = extract_texts_from_files(saved_paths)
 
-        # Generate outputs
+        # Genera solo per i canali selezionati
         outputs = generate_outputs(
             source_text=source_text,
             city=st.get("city_name"),
@@ -148,7 +163,8 @@ async def generate(
             add_hashtags=add_hashtags,
             add_call_to_action=add_call_to_action,
             tone=st.get("tone", "istituzionale_vicino"),
-            use_emojis=st.get("use_emojis", False),
+            use_emojis_social=st.get("use_emojis", True),
+            targets=targets,
         )
 
         return templates.TemplateResponse(
@@ -201,6 +217,15 @@ async def post(
     st = load_settings()
     results = []
     photo_url = f"{BASE_PUBLIC_URL}/uploads/{photo_filename}" if photo_filename else None
+
+    # Usa i token salvati nel profilo (se presenti)
+    FB_PAGE_ID = st.get("fb_page_id") or os.getenv("FB_PAGE_ID")
+    FB_PAGE_ACCESS_TOKEN = st.get("fb_page_access_token") or os.getenv("FB_PAGE_ACCESS_TOKEN")
+    IG_USER_ID = st.get("ig_user_id") or os.getenv("IG_USER_ID")
+    LINKEDIN_ACCESS_TOKEN = st.get("linkedin_access_token") or os.getenv("LINKEDIN_ACCESS_TOKEN")
+    LINKEDIN_ORG_ID = st.get("linkedin_org_id") or os.getenv("LINKEDIN_ORG_ID")
+    X_BEARER_TOKEN = st.get("x_bearer_token") or os.getenv("X_BEARER_TOKEN")
+    X_USER_ID = st.get("x_user_id") or os.getenv("X_USER_ID")
 
     if target_fb == "on" and FB_PAGE_ID and FB_PAGE_ACCESS_TOKEN:
         ok, resp = post_facebook(
