@@ -1,32 +1,67 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="it">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>CommsApp</title>
-  <link rel="stylesheet" href="/static/style.css" />
-</head>
-<body>
-  <header class="container header">
-    <div class="brand">
-      <div class="logo">✦</div>
-      <div>
-        <h1>CommsApp</h1>
-        <p class="sub">Comune di {{ city }} — {{ mayor }}</p>
-      </div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ request.app.title }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script defer src="/static/js/app.js"></script>
+    <style>
+      .nav-link { display:block; padding:0.5rem 0.75rem; border-radius:0.75rem; color:#334155; text-decoration:none; }
+      .nav-link:hover { background:#f1f5f9; }
+      .card { background:#fff; border-radius:1rem; box-shadow:0 1px 2px rgba(0,0,0,.04); border:1px solid #e2e8f0; padding:1rem; }
+      @media (min-width:768px){ .card{ padding:1.5rem; } }
+      .btn-primary { display:inline-flex; align-items:center; justify-content:center; border-radius:0.75rem; padding:0.5rem 1rem; background:#2563eb; color:#fff; }
+      .btn-primary:hover { background:#1d4ed8; }
+      .btn-secondary { display:inline-flex; align-items:center; justify-content:center; border-radius:0.75rem; padding:0.375rem 0.75rem; background:#f1f5f9; color:#334155; }
+      .btn-secondary:hover { background:#e2e8f0; }
+      .input { width:100%; border-radius:0.75rem; border:1px solid #cbd5e1; padding:0.5rem 0.75rem; background:#fff; }
+      .input:focus { outline:none; box-shadow:0 0 0 2px #93c5fd; border-color:#3b82f6; }
+      .label { font-size:.875rem; font-weight:600; color:#334155; margin-bottom:.25rem; display:block; }
+      .checkbox { width:1rem; height:1rem; }
+      .grid-cards { display:grid; gap:1rem; }
+      @media (min-width:768px){ .grid-cards{ gap:1.5rem; grid-template-columns:repeat(2,minmax(0,1fr)); } }
+      @media (min-width:1280px){ .grid-cards{ grid-template-columns:repeat(3,minmax(0,1fr)); } }
+    </style>
+  </head>
+  <body class="bg-slate-50 text-slate-800">
+    <div class="min-h-screen grid grid-cols-1 md:grid-cols-[260px_1fr]">
+      <aside class="bg-white md:border-r border-slate-200">
+        <div class="p-5 border-b border-slate-200">
+          <a href="/" class="text-xl font-bold">Ufficio Stampa</a>
+          <div class="text-xs text-slate-500">per politici</div>
+        </div>
+        <nav class="p-3 space-y-1">
+          <a href="/" class="nav-link">🏠 Home</a>
+          <a href="/profile" class="nav-link">👤 Profilo</a>
+          <a href="/generate" class="nav-link">🧠 Genera Testi</a>
+          <a href="/upload" class="nav-link">📄 Upload</a>
+        </nav>
+        <div class="mt-auto p-4 text-xs text-slate-400 hidden md:block">v1 • FastAPI + Tailwind</div>
+      </aside>
+
+      <main class="p-4 md:p-8">
+        <header class="flex items-center justify-between mb-6">
+          <div class="flex items-center gap-3">
+            <div class="text-2xl">{{ settings.emoji if settings and settings.emoji else "🏛️" }}</div>
+            <div>
+              <div class="font-semibold">{{ settings.name or "Nome politico" }}</div>
+              <div class="text-xs text-slate-500">{{ settings.role or "Ruolo" }} • {{ settings.tone or "Tono" }}</div>
+            </div>
+          </div>
+          <div class="hidden md:flex items-center gap-2 text-sm">
+            {% if settings and settings.social %}
+              {% if settings.social.facebook_url %}<a class="btn-secondary" target="_blank" href="{{ settings.social.facebook_url }}">Facebook</a>{% endif %}
+              {% if settings.social.instagram_username %}<a class="btn-secondary" target="_blank" href="https://instagram.com/{{ settings.social.instagram_username }}">Instagram</a>{% endif %}
+              {% if settings.social.x_username %}<a class="btn-secondary" target="_blank" href="https://x.com/{{ settings.social.x_username }}">X</a>{% endif %}
+              {% if settings.social.website_url %}<a class="btn-secondary" target="_blank" href="{{ settings.social.website_url }}">Sito</a>{% endif %}
+            {% endif %}
+          </div>
+        </header>
+
+        {% block content %}{% endblock %}
+      </main>
     </div>
-    <nav>
-      <a href="/" class="navlink">Home</a>
-      <a href="/profile" class="navlink">Profilo</a>
-    </nav>
-  </header>
-
-  <main class="container">
-    {% block content %}{% endblock %}
-  </main>
-
-  <footer class="container muted footer">
-    <small>Bozza MVP. Verifica sempre prima della pubblicazione.</small>
-  </footer>
-</body>
+  </body>
 </html>
