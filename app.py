@@ -23,10 +23,39 @@ SECRET_KEY = os.getenv("SECRET_KEY", "change-me-please-very-long-secret")
 ADMIN_PIN = os.getenv("ADMIN_PIN", "246810")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 
-# Persistenza locale (Render Disk)
-DATA_DIR = os.getenv("DATA_DIR", "/data")
+# ----------------------------
+# Directory dati (bozze/esportazioni)
+# - Se DATA_DIR è impostata (es. /var/data su Render Disk), usala.
+# - Altrimenti prova /var/data (comune su Render se hai montato un Disk).
+# - Se non scrivibile, fallback a ./data dentro al progetto.
+# ----------------------------
+def get_writable_data_dir() -> str:
+    candidates = []
+    # 1) ENV esplicita
+    env_dir = os.getenv("DATA_DIR")
+    if env_dir:
+        candidates.append(env_dir)
+    # 2) Path standard Render Disk
+    candidates.append("/var/data")
+    # 3) Cartella locale del progetto
+    candidates.append(os.path.join(os.getcwd(), "data"))
+
+    for path in candidates:
+        try:
+            os.makedirs(path, exist_ok=True)
+            # Test scrittura
+            testfile = os.path.join(path, ".write_test")
+            with open(testfile, "w", encoding="utf-8") as f:
+                f.write("ok")
+            os.remove(testfile)
+            return path
+        except Exception:
+            continue
+    # Estremo fallback: current dir
+    return os.getcwd()
+
+DATA_DIR = get_writable_data_dir()
 DRAFTS_PATH = os.path.join(DATA_DIR, "voxup_drafts.json")
-os.makedirs(DATA_DIR, exist_ok=True)
 if not os.path.exists(DRAFTS_PATH):
     try:
         with open(DRAFTS_PATH, "w", encoding="utf-8") as f:
@@ -124,10 +153,6 @@ def extract_text_from_upload(filename: str, data: bytes) -> str:
 
 
 def split_into_posts(text: str, limit: int = 280) -> List[str]:
-    """
-    Split “intelligente” per X: rispetta parole e paragrafi.
-    Aggiunge "1/N " come prefisso se necessario.
-    """
     text = text.strip()
     if not text:
         return []
@@ -141,7 +166,6 @@ def split_into_posts(text: str, limit: int = 280) -> List[str]:
         else:
             if cur:
                 chunks.append(cur)
-            # se la singola parola è più lunga del limite, tagliala secco
             if len(w) > limit:
                 while len(w) > limit:
                     chunks.append(w[:limit])
@@ -164,7 +188,6 @@ def split_into_posts(text: str, limit: int = 280) -> List[str]:
 
 
 def save_draft(entry: Dict[str, Any]) -> None:
-    """Aggiunge una bozza su /data/voxup_drafts.json, mantenendo al massimo 50 elementi."""
     try:
         with open(DRAFTS_PATH, "r", encoding="utf-8") as f:
             arr = json.load(f)
@@ -184,7 +207,7 @@ def save_draft(entry: Dict[str, Any]) -> None:
 # ----------------------------
 @app.get("/health")
 def health():
-    return {"status": "ok", "app": APP_NAME}
+    return {"status": "ok", "app": APP_NAME, "data_dir": DATA_DIR}
 
 @app.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
@@ -234,255 +257,4 @@ async def save_onboarding(
     first_name: str = Form(""),
     last_name: str = Form(""),
     role: str = Form(""),
-    tones: List[str] = Form([]),
-    channels: List[str] = Form(["Social"])
-):
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
-    ensure_session_defaults(request.session)
-    profile = request.session["profile"]
-    profile["first_name"] = first_name.strip()
-    profile["last_name"] = last_name.strip()
-    profile["role"] = role.strip()
-    profile["tones"] = tones
-    profile["channels"] = channels or ["Social"]
-    request.session["profile"] = profile
-    return RedirectResponse(url="/compose", status_code=status.HTTP_302_FOUND)
-
-
-@app.get("/compose", response_class=HTMLResponse)
-def compose_page(request: Request):
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
-    return templates.TemplateResponse("compose.html", {
-        "request": request,
-        "app_name": APP_NAME,
-        "profile": request.session.get("profile", {}),
-        "results": None
-    })
-
-
-@app.post("/generate", response_class=HTMLResponse)
-async def generate(
-    request: Request,
-    text_input: str = Form(""),
-    url_input: str = Form(""),
-    split_x: Optional[str] = Form(None),
-    files: List[UploadFile] = File(None),
-):
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
-
-    ensure_session_defaults(request.session)
-    profile = request.session["profile"]
-    style_guide = request.session.get("style_guide", "")
-    add_ai = profile.get("add_ai", False)
-
-    # 1) Acquisizione contenuti
-    bodies: List[str] = []
-    if text_input.strip():
-        bodies.append(text_input.strip())
-    if url_input.strip():
-        bodies.append(f"Fonte: {url_input.strip()}")
-
-    file_previews = []
-    if files:
-        for f in files:
-            try:
-                raw = await f.read()
-            except Exception:
-                raw = b""
-            text = extract_text_from_upload(f.filename, raw)
-            snippet = text[:500] + ("…" if len(text) > 500 else "")
-            if not text:
-                snippet = "(Anteprima non disponibile: formato non supportato o documento protetto)"
-            file_previews.append({"name": f.filename, "snippet": snippet})
-            if text:
-                bodies.append(f"File {f.filename}:\n{text[:4000]}")
-
-    base = "\n\n".join(bodies).strip()
-    if not base:
-        base = "Nessun testo inserito. Aggiungi un testo, un URL o allega dei file."
-
-    # 2) Dichiarazione AI (fallback semplice)
-    ai_statement = ""
-    if add_ai:
-        full_name = f"{profile.get('first_name','').strip()} {profile.get('last_name','').strip()}".strip()
-        role = profile.get("role", "").strip()
-        tono = ", ".join(profile.get("tones", [])) or "istituzionale"
-        guida = f"\n(Stile guida: {style_guide[:200]}…)" if style_guide else ""
-        ai_statement = f'\n\nDichiarazione {full_name} ({role}, tono {tono}): "{base[:240]}..."{guida}'
-
-    combined_text = base + ai_statement
-
-    # 3) Output per canale (+ split X opzionale per Social)
-    channels = profile.get("channels", ["Social"])
-    results: Dict[str, Any] = {}
-    do_split = (split_x == "on")
-    for ch in channels:
-        content = format_for_channel(combined_text, ch)
-        if ch == "Social" and do_split:
-            # Togliamo eventuale bold unicode per contare caratteri in modo realistico,
-            # ma manteniamo il bold nell’output finale (split del testo base)
-            raw = combined_text
-            pieces = split_into_posts(raw, 280)
-            # riapplica bold unicode a ciascun pezzo
-            results[ch] = [unicode_bold(p) for p in pieces]
-        else:
-            results[ch] = content
-
-    # 4) Salva ultimi risultati in sessione per esportazioni
-    request.session["last_results"] = results
-
-    # 5) Salva bozza su /data
-    save_draft({
-        "ts": datetime.utcnow().isoformat() + "Z",
-        "profile": request.session.get("profile", {}),
-        "input": {"text": text_input, "url": url_input},
-        "results": results
-    })
-
-    return templates.TemplateResponse("compose.html", {
-        "request": request,
-        "app_name": APP_NAME,
-        "profile": profile,
-        "results": results,
-        "file_previews": file_previews,
-        "split_used": do_split
-    })
-
-
-@app.get("/export")
-def export_result(request: Request,
-                  channel: str = Query(...),
-                  fmt: str = Query(...)):
-    """
-    Esporta l'ultimo risultato in .txt/.html per tutti i canali.
-    Se channel=Stampa e fmt=docx -> crea file .docx.
-    """
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
-    ensure_session_defaults(request.session)
-    results = request.session.get("last_results", {})
-    if not results or channel not in results:
-        return PlainTextResponse("Nessun risultato da esportare per questo canale.", status_code=400)
-
-    safe_name = channel.lower()
-
-    # Caso Social con split (lista)
-    value = results[channel]
-    if isinstance(value, list):
-        # Unisci i thread su export (uno per riga)
-        joined = "\n\n".join(value)
-        if fmt == "txt":
-            path = os.path.join(DATA_DIR, f"voxup_{safe_name}.txt")
-            with open(path, "w", encoding="utf-8") as f:
-                f.write(joined)
-            return FileResponse(path, media_type="text/plain", filename=f"{APP_NAME}_{safe_name}.txt")
-        elif fmt == "html":
-            html = "<br>".join(value)
-            path = os.path.join(DATA_DIR, f"voxup_{safe_name}.html")
-            with open(path, "w", encoding="utf-8") as f:
-                f.write(f"<!doctype html><meta charset='utf-8'><body>{html}</body>")
-            return FileResponse(path, media_type="text/html", filename=f"{APP_NAME}_{safe_name}.html")
-        else:
-            return PlainTextResponse("Formato non supportato per questo canale.", status_code=400)
-
-    # Stringa semplice
-    content: str = str(value)
-
-    if fmt == "txt":
-        # rimuovi tag HTML semplici
-        plain = re.sub(r"<[^>]+>", "", content)
-        path = os.path.join(DATA_DIR, f"voxup_{safe_name}.txt")
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(plain)
-        return FileResponse(path, media_type="text/plain", filename=f"{APP_NAME}_{safe_name}.txt")
-
-    if fmt == "html":
-        html = content if channel != "Social" else f"<pre>{content}</pre>"
-        path = os.path.join(DATA_DIR, f"voxup_{safe_name}.html")
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(f"<!doctype html><meta charset='utf-8'><body>{html}</body>")
-        return FileResponse(path, media_type="text/html", filename=f"{APP_NAME}_{safe_name}.html")
-
-    if fmt == "docx" and channel == "Stampa":
-        doc = Document()
-        # Inseriamo conversione base dei tag <strong> -> testo forte
-        plain = re.sub(r"<[^>]+>", "", content)
-        for para in plain.split("\n"):
-            doc.add_paragraph(para)
-        tmp = os.path.join(DATA_DIR, f"voxup_{safe_name}.docx")
-        doc.save(tmp)
-        return FileResponse(tmp, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                            filename=f"{APP_NAME}_{safe_name}.docx")
-
-    return PlainTextResponse("Formato non supportato.", status_code=400)
-
-
-@app.get("/style", response_class=HTMLResponse)
-def style_page(request: Request):
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
-    return templates.TemplateResponse("style.html", {
-        "request": request,
-        "app_name": APP_NAME,
-        "style_guide": request.session.get("style_guide", "")
-    })
-
-@app.post("/style")
-async def style_save(request: Request, style_guide: str = Form("")):
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
-    request.session["style_guide"] = style_guide.strip()
-    return RedirectResponse(url="/style", status_code=status.HTTP_302_FOUND)
-
-
-@app.get("/profile", response_class=HTMLResponse)
-def profile_page(request: Request):
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
-    return templates.TemplateResponse("profile.html", {
-        "request": request,
-        "app_name": APP_NAME,
-        "profile": request.session.get("profile", {})
-    })
-
-@app.post("/profile")
-async def profile_save(
-    request: Request,
-    first_name: str = Form(""),
-    last_name: str = Form(""),
-    role: str = Form(""),
-    tones: List[str] = Form([]),
-    channels: List[str] = Form(["Social"]),
-    add_ai: Optional[str] = Form(None)
-):
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
-    ensure_session_defaults(request.session)
-    profile = request.session["profile"]
-    profile["first_name"] = first_name.strip()
-    profile["last_name"] = last_name.strip()
-    profile["role"] = role.strip()
-    profile["tones"] = tones
-    profile["channels"] = channels or ["Social"]
-    profile["add_ai"] = (add_ai == "on")
-    request.session["profile"] = profile
-    return RedirectResponse(url="/profile", status_code=status.HTTP_302_FOUND)
-
-
-@app.get("/drafts", response_class=HTMLResponse)
-def drafts_page(request: Request):
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
-    try:
-        with open(DRAFTS_PATH, "r", encoding="utf-8") as f:
-            items = json.load(f)
-    except Exception:
-        items = []
-    return templates.TemplateResponse("drafts.html", {
-        "request": request,
-        "app_name": APP_NAME,
-        "drafts": items[:20]
-    })
+    tones: List[str] = Form(
