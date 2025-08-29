@@ -2,7 +2,7 @@
 {% block content %}
   <section class="card max-w-3xl">
     <h2 class="text-lg font-semibold mb-3">Aiutaci a imitare il tuo stile</h2>
-    <p class="text-slate-600 mb-3 text-sm">Incolla una o più dichiarazioni passate, comunicati o post che rispecchiano il tuo stile. L’AI li userà come riferimento (non verranno pubblicati).</p>
+    <p class="text-slate-600 mb-3 text-sm">Incolla una o più dichiarazioni passate, comunicati o post che ti rappresentano. L’AI li userà come riferimento.</p>
     <form method="post" class="space-y-3" @submit="loading=true">
       <textarea name="style_examples" rows="12" class="input" placeholder="Incolla qui testi che ti rappresentano…">{{ settings.style_examples or "" }}</textarea>
       <div class="flex gap-2">
