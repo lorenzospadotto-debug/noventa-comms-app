@@ -1,74 +1,96 @@
 {% extends "base.html" %}
 {% block content %}
-  <div class="grid md:grid-cols-[1fr_1fr] gap-6" x-data="dragDrop()">
-    <section class="card space-y-4">
-      <h2 class="text-lg font-semibold">Carica o incolla, poi genera</h2>
-      <form id="composeForm" method="post" enctype="multipart/form-data" class="space-y-3" @submit="startLoading">
-        <textarea name="source_text" rows="6" class="input" placeholder="Incolla qui un testo (opzionale). Usa **grassetto** e emoji.">{{ raw_text or "" }}</textarea>
+<h1 class="text-2xl font-bold">Upload & Genera</h1>
+<p class="text-gray-600 mt-1">Incolla un testo, aggiungi un URL e/o trascina più file. Poi clicca “Genera”.</p>
 
-        <div class="flex items-center gap-2">
-          <span class="label m-0">Oppure link di articolo</span>
-          <input type="url" name="article_url" class="input" placeholder="https://…">
-        </div>
+<form method="post" action="/generate" enctype="multipart/form-data" class="mt-6 grid gap-6" onsubmit="showOverlay()">
+  <label class="block">
+    <span class="text-sm font-medium">Testo</span>
+    <textarea name="text_input" rows="6" class="mt-1 w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-indigo-600"
+              placeholder="Incolla qui il contenuto da comunicare…"></textarea>
+  </label>
 
-        <div class="border-2 border-dashed rounded-xl p-6 text-center"
-             :class="{ 'border-[var(--vox-primary)] bg-white' : over, 'border-slate-300 bg-white' : !over }"
-             @dragover.prevent="over=true" @dragleave.prevent="over=false" @drop.prevent="handleDrop($event)">
-          <p class="mb-2">Trascina qui uno o più file (PDF, DOCX, TXT) oppure clicca</p>
-          <input type="file" name="files" class="hidden" x-ref="fileInput" multiple />
-          <button type="button" class="btn-secondary" @click="$refs.fileInput.click()">Scegli file</button>
-        </div>
+  <label class="block">
+    <span class="text-sm font-medium">URL di un articolo (opzionale)</span>
+    <input type="url" name="url_input" placeholder="https://..."
+           class="mt-1 w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-indigo-600">
+  </label>
 
-        <div class="flex gap-2">
-          <button class="btn-primary" type="submit">Genera anteprime</button>
-          <a href="/" class="btn-secondary">Torna all'inizio</a>
-        </div>
-      </form>
-
-      {% if uploads_preview %}
-        <div class="pt-2">
-          <h3 class="font-semibold mb-2">Anteprima contenuti caricati</h3>
-          <ul class="space-y-2">
-            {% for u in uploads_preview %}
-              <li class="border rounded-lg p-3">
-                <div class="text-sm font-medium">{{ u.name }}</div>
-                <div class="text-xs text-slate-600 whitespace-pre-wrap">{{ u.snippet }}</div>
-              </li>
-            {% endfor %}
-          </ul>
-        </div>
-      {% endif %}
-
-      {% if ai_text %}
-      <div class="pt-2">
-        <h3 class="font-semibold mb-2">Rielaborazione AI</h3>
-        <pre class="whitespace-pre-wrap text-sm">{{ ai_text }}</pre>
+  <div>
+    <span class="text-sm font-medium">Allegati (trascina qui più file)</span>
+    <div id="dropzone" class="mt-1 border-2 border-dashed rounded-xl p-6 text-center text-gray-600">
+      Trascina qui uno o più file (PDF, DOCX, TXT) oppure clicca
+      <div class="mt-3">
+        <button type="button" id="btn-choose"
+                class="px-3 py-1.5 rounded-lg bg-gray-100 border">Scegli file</button>
       </div>
-      {% endif %}
-    </section>
-
-    <section class="space-y-4">
-      {% if previews %}
-        {% for key, item in previews.items() %}
-          <div class="card" x-data="{copied:false}">
-            <div class="flex items-center justify-between mb-2">
-              <h3 class="font-semibold">{{ item.label }}</h3>
-              {% if item.char_limit %}<span class="text-xs text-slate-500">{{ item.length }}/{{ item.char_limit }}</span>{% endif %}
-            </div>
-            {% if key in ["website","press"] %}
-              <div x-ref="content">{{ item.formatted | safe }}</div>
-            {% else %}
-              <pre class="whitespace-pre-wrap text-sm" x-ref="content">{{ item.formatted }}</pre>
-            {% endif %}
-            <div class="pt-3 flex gap-2">
-              <button class="btn-secondary" @click="copyText($refs.content); copied=true; setTimeout(()=>copied=false, 1200)">Copia</button>
-              <span class="text-xs" x-show="copied">Copiato ✅</span>
-            </div>
-          </div>
-        {% endfor %}
-      {% else %}
-        <div class="card"><div class="text-slate-500">Nessuna anteprima ancora. Incolla testo, link o trascina uno o più file.</div></div>
-      {% endif %}
-    </section>
+      <input id="file-input" type="file" name="files" multiple class="hidden" />
+    </div>
+    <div id="file-list" class="mt-3 space-y-3" aria-live="polite"></div>
   </div>
+
+  <label class="inline-flex items-center gap-2">
+    <input type="checkbox" name="split_x">
+    <span class="text-sm">Dividi “Social” in thread da 280 caratteri (X)</span>
+  </label>
+
+  <div class="flex flex-wrap gap-3 justify-end">
+    <a href="/" class="px-4 py-2 rounded-lg border">Torna all'inizio</a>
+    <button type="submit" class="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700">
+      Genera
+    </button>
+  </div>
+</form>
+
+{% if file_previews %}
+  <div class="mt-10">
+    <h2 class="text-xl font-bold">Anteprima contenuti caricati</h2>
+    <div class="mt-3 grid gap-4">
+      {% for f in file_previews %}
+      <div class="p-4 rounded-lg border bg-white">
+        <div class="font-medium">{{ f.name }}</div>
+        <pre class="mt-2 text-sm whitespace-pre-wrap text-gray-700">{{ f.snippet }}</pre>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+{% else %}
+  <div class="mt-10">
+    <div class="p-4 rounded-lg border bg-white text-gray-600">Nessuna anteprima ancora. Incolla testo, link o trascina uno o più file.</div>
+  </div>
+{% endif %}
+
+{% if results %}
+  <div class="mt-10">
+    <h2 class="text-xl font-bold">Risultati per canale</h2>
+    <div class="mt-4 grid gap-6">
+      {% for ch, content in results.items() %}
+      <div class="p-4 rounded-lg border bg-white">
+        <div class="flex items-center justify-between">
+          <h3 class="font-semibold">{{ ch }}</h3>
+          <div class="flex gap-2">
+            <a class="text-sm underline" href="/export?channel={{ ch }}&fmt=txt">Esporta .txt</a>
+            <a class="text-sm underline" href="/export?channel={{ ch }}&fmt=html">Esporta .html</a>
+            {% if ch == "Stampa" %}
+              <a class="text-sm underline" href="/export?channel=Stampa&fmt=docx">Esporta .docx</a>
+            {% endif %}
+          </div>
+        </div>
+
+        {% if ch == "Social" and content is iterable and content is not string %}
+          <ol class="mt-3 list-decimal ml-5 space-y-2">
+            {% for part in content %}
+              <li><pre class="whitespace-pre-wrap text-gray-900">{{ part }}</pre></li>
+            {% endfor %}
+          </ol>
+        {% elif ch == "Social" %}
+          <pre class="mt-3 whitespace-pre-wrap text-gray-900">{{ content }}</pre>
+        {% else %}
+          <div class="mt-3 prose max-w-none">{{ content | safe }}</div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+{% endif %}
 {% endblock %}
