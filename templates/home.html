@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="grid-cards">
+    <section class="card">
+      <h2 class="text-lg font-semibold mb-2">Benvenuto 👋</h2>
+      <p class="text-slate-600 mb-4">Imposta il profilo, collega i canali e genera contenuti in pochi click.</p>
+      <div class="flex gap-2">
+        <a href="/profile" class="btn-primary">Configura Profilo</a>
+        <a href="/generate" class="btn-secondary">Genera Testi</a>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3 class="font-semibold mb-2">Canali attivi</h3>
+      <ul class="text-sm text-slate-700 list-disc pl-5">
+        {% for ch in settings.channels %}
+          <li>{{ {"facebook":"Facebook","instagram":"Instagram","x":"X (Twitter)","website":"Sito","press":"Stampa"}[ch] if ch in ["facebook","instagram","x","website","press"] else ch }}</li>
+        {% else %}
+          <li>Nessun canale selezionato</li>
+        {% endfor %}
+      </ul>
+    </section>
+
+    <section class="card">
+      <h3 class="font-semibold mb-2">Suggerimenti</h3>
+      <ul class="text-sm text-slate-600 list-disc pl-5 space-y-1">
+        <li>Usa <code>**grassetto**</code> per evidenziare le parti importanti.</li>
+        <li>Le emoji sono mantenute sui social e rimosse nei comunicati stampa.</li>
+        <li>Su <strong>X</strong> vedrai un contatore caratteri.</li>
+      </ul>
+    </section>
+  </div>
+{% endblock %}
