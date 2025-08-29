@@ -22,9 +22,6 @@
       .input:focus{outline:none;box-shadow:0 0 0 2px rgba(233,84,43,.25);border-color:var(--vox-primary)}
       .label{font-size:.875rem;font-weight:600;color:#334155;margin-bottom:.25rem;display:block}
       .checkbox{width:1rem;height:1rem}
-      .grid-cards{display:grid;gap:1rem}
-      @media(min-width:768px){.grid-cards{gap:1.5rem;grid-template-columns:repeat(2,minmax(0,1fr))}}
-      @media(min-width:1280px){.grid-cards{grid-template-columns:repeat(3,minmax(0,1fr))}}
       /* spinner overlay */
       .overlay{position:fixed;inset:0;background:rgba(255,255,255,.65);backdrop-filter:blur(1px);display:none;align-items:center;justify-content:center;z-index:50}
       .overlay.show{display:flex}
@@ -33,8 +30,9 @@
     </style>
   </head>
   <body x-data="{loading:false}">
-    <!-- loading overlay -->
     <div class="overlay" :class="{ 'show': loading }">
+      <!-- Se carichi /static/img/loading.gif la mostriamo, altrimenti spinner CSS -->
+      <img src="/static/img/loading.gif" class="w-12 h-12" onerror="this.style.display='none'">
       <div class="spinner"></div>
     </div>
 
@@ -46,31 +44,18 @@
         </div>
 
         <nav class="p-3 space-y-1 flex-1">
-          <a href="/" class="nav-link">🏁 Inizia (Onboarding)</a>
+          <a href="/" class="nav-link">🏁 Inizia</a>
           <a href="/compose" class="nav-link">🧠 Upload & Genera</a>
           <a href="/style" class="nav-link">✍️ Stile</a>
         </nav>
 
         <div class="p-3 border-t border-slate-200">
           <a href="/profile" class="nav-link">👤 Profilo</a>
+          <a href="/logout" class="nav-link">🔓 Esci</a>
         </div>
       </aside>
 
       <main class="p-4 md:p-8">
-        <header class="flex items-center justify-between mb-6">
-          <div class="flex items-center gap-3">
-            <div class="text-2xl">{{ settings.emoji if settings and settings.emoji else "📣" }}</div>
-            <div>
-              <div class="font-semibold">
-                {% if settings %}{{ (settings.first_name ~ ' ' ~ settings.last_name)|trim }}{% else %}Nome Cognome{% endif %}
-              </div>
-              <div class="text-xs text-slate-600">
-                {{ settings.role or "Ruolo" }} • {{ (settings.tones|join(', ')) if settings and settings.tones else "Toni" }}
-              </div>
-            </div>
-          </div>
-        </header>
-
         {% block content %}{% endblock %}
       </main>
     </div>
