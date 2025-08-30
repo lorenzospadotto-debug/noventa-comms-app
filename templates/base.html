@@ -6,7 +6,6 @@
   <title>{{ app_name }} • VoxUp</title>
   <meta name="color-scheme" content="light only">
   <script src="https://cdn.tailwindcss.com"></script>
-  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <link rel="icon" href="https://fav.farm/🎙️">
   <style>
     .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; z-index: 60; }
@@ -19,7 +18,7 @@
     Salta al contenuto
   </a>
 
-  <div class="min-h-full">
+  <div class="min-h-full pb-14"> <!-- spazio per ticker -->
     <div class="grid grid-cols-12 gap-0">
       <aside class="col-span-12 md:col-span-3 lg:col-span-2 bg-white border-r border-gray-200">
         <div class="p-4">
@@ -32,13 +31,18 @@
           </div>
 
           {% set path = request.url.path %}
+          {% set done = request.session.get('onboarding_done') %}
           <nav class="mt-6 space-y-1">
             {% if request.session.get('auth') %}
+              {% if not done %}
               <a href="/" class="block px-3 py-2 rounded-lg font-medium {% if path=='/' %}bg-indigo-50 text-indigo-700{% else %}text-gray-700 hover:bg-gray-100{% endif %}">Onboarding</a>
+              {% endif %}
               <a href="/compose" class="block px-3 py-2 rounded-lg font-medium {% if path.startswith('/compose') %}bg-indigo-50 text-indigo-700{% else %}text-gray-700 hover:bg-gray-100{% endif %}">Upload & Genera</a>
               <a href="/style" class="block px-3 py-2 rounded-lg font-medium {% if path.startswith('/style') %}bg-indigo-50 text-indigo-700{% else %}text-gray-700 hover:bg-gray-100{% endif %}">Stile</a>
               <a href="/profile" class="block px-3 py-2 rounded-lg font-medium {% if path.startswith('/profile') %}bg-indigo-50 text-indigo-700{% else %}text-gray-700 hover:bg-gray-100{% endif %}">Profilo</a>
               <a href="/drafts" class="block px-3 py-2 rounded-lg font-medium {% if path.startswith('/drafts') %}bg-indigo-50 text-indigo-700{% else %}text-gray-700 hover:bg-gray-100{% endif %}">Bozze</a>
+              <a href="/notes" class="block px-3 py-2 rounded-lg font-medium {% if path.startswith('/notes') %}bg-indigo-50 text-indigo-700{% else %}text-gray-700 hover:bg-gray-100{% endif %}">Blocco note</a>
+              <a href="/news" class="block px-3 py-2 rounded-lg font-medium {% if path.startswith('/news') %}bg-indigo-50 text-indigo-700{% else %}text-gray-700 hover:bg-gray-100{% endif %}">Notizie</a>
             {% else %}
               <a href="/login" class="block px-3 py-2 rounded-lg font-medium {% if path.startswith('/login') %}bg-indigo-50 text-indigo-700{% else %}text-gray-700 hover:bg-gray-100{% endif %}">Login</a>
               <a href="/register" class="block px-3 py-2 rounded-lg font-medium {% if path.startswith('/register') %}bg-indigo-50 text-indigo-700{% else %}text-gray-700 hover:bg-gray-100{% endif %}">Registrati</a>
@@ -54,7 +58,7 @@
           {% else %}
             <span class="text-xs text-gray-400">Non autenticato</span>
           {% endif %}
-          <span class="text-xs text-gray-400">v0.3</span>
+          <span class="text-xs text-gray-400">v0.4</span>
         </div>
       </aside>
 
@@ -63,6 +67,17 @@
           {% block content %}{% endblock %}
         </div>
       </main>
+    </div>
+  </div>
+
+  <!-- Ticker Notizie in fondo -->
+  <div class="fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 text-sm">
+    <div class="max-w-5xl mx-auto px-4 py-2 flex items-center gap-3">
+      <div class="font-semibold">📰 Notizie</div>
+      <div id="news-ticker" class="truncate">
+        <span class="text-gray-500">Caricamento titoli...</span>
+      </div>
+      <a href="/news" class="ml-auto text-indigo-700 hover:underline">Vedi tutte</a>
     </div>
   </div>
 
