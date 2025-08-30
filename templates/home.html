@@ -1,54 +1,57 @@
 {% extends "base.html" %}
 {% block content %}
-  <section class="card max-w-3xl">
-    <h2 class="text-lg font-semibold mb-3">Completa questi 4 passaggi</h2>
-    <form method="post" action="/onboarding" class="space-y-4" @submit="loading=true">
-      <div>
-        <div class="label">1) Nome e Cognome</div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <input name="first_name" class="input" placeholder="Nome" value="{{ settings.first_name }}">
-          <input name="last_name" class="input" placeholder="Cognome" value="{{ settings.last_name }}">
-        </div>
-      </div>
+<h1 class="text-2xl font-bold">Onboarding (4 passi)</h1>
+<p class="text-gray-600">Compila una volta, poi si auto-ricorda.</p>
 
-      <div>
-        <div class="label">2) Ruolo/Titolo</div>
-        <input name="role" class="input" placeholder="Sindaco, Onorevole, Consigliere…" value="{{ settings.role }}">
-      </div>
+<form action="/save_onboarding" method="post" class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6" onsubmit="showOverlay()">
+  <div>
+    <label class="block">
+      <span class="text-sm font-medium">Nome</span>
+      <input type="text" name="first_name" value="{{ profile.first_name }}" class="mt-1 w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-indigo-600">
+    </label>
+  </div>
+  <div>
+    <label class="block">
+      <span class="text-sm font-medium">Cognome</span>
+      <input type="text" name="last_name" value="{{ profile.last_name }}" class="mt-1 w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-indigo-600">
+    </label>
+  </div>
+  <div class="md:col-span-2">
+    <label class="block">
+      <span class="text-sm font-medium">Ruolo (es. Sindaco, Assessore)</span>
+      <input type="text" name="role" value="{{ profile.role }}" class="mt-1 w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-indigo-600">
+    </label>
+  </div>
 
-      <div>
-        <div class="label">3) Tono (scegline più di uno)</div>
-        {% set opts = ["Istituzionale","Empatico","Energico","Inclusivo","Determinato","Conciliante","Visionario","Pragmatico","Tecnico","Vicino al territorio"] %}
-        <div class="grid grid-cols-2 gap-2">
-          {% for t in opts %}
-          <label class="flex items-center gap-2 text-sm">
-            <input type="checkbox" name="tones" value="{{ t }}" class="checkbox" {% if settings.tones and t in settings.tones %}checked{% endif %}>
-            <span>{{ t }}</span>
-          </label>
-          {% endfor %}
-        </div>
-        <div class="mt-2 flex items-center gap-2">
-          <span class="text-sm text-slate-600">Altro:</span>
-          <input name="tone_other" class="input" value="{{ settings.tone_other }}" placeholder="es. concreto, europeista…">
-        </div>
-      </div>
+  <div>
+    <span class="text-sm font-medium">Toni</span>
+    <div class="mt-2 grid grid-cols-2 gap-2">
+      {% set tones = profile.tones or [] %}
+      {% for t in ['Istituzionale','Empatico','Determinato','Tecnico'] %}
+      <label class="flex items-center gap-2">
+        <input type="checkbox" name="tones" value="{{ t }}" {% if t in tones %}checked{% endif %}>
+        <span>{{ t }}</span>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
 
-      <div>
-        <div class="label">4) Per cosa vuoi i testi</div>
-        {% set L = {"facebook":"Facebook","instagram":"Instagram","x":"X (Twitter)","website":"Sito","press":"Stampa"} %}
-        <div class="grid grid-cols-2 gap-2">
-          {% for key,label in L.items() %}
-          <label class="flex items-center gap-2 text-sm">
-            <input type="checkbox" name="channels" value="{{ key }}" class="checkbox" {% if settings.channels and key in settings.channels %}checked{% endif %}>
-            <span>{{ label }}</span>
-          </label>
-          {% endfor %}
-        </div>
-      </div>
+  <div>
+    <span class="text-sm font-medium">Canali</span>
+    <div class="mt-2 grid grid-cols-2 gap-2">
+      {% set channels = profile.channels or ['Social'] %}
+      {% for c in ['Social','Sito','Stampa'] %}
+      <label class="flex items-center gap-2">
+        <input type="checkbox" name="channels" value="{{ c }}" {% if c in channels %}checked{% endif %}>
+        <span>{{ c }}</span>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
 
-      <div class="pt-2">
-        <button class="btn-primary" type="submit">Vai a Upload & Genera</button>
-      </div>
-    </form>
-  </section>
+  <div class="md:col-span-2 flex gap-3">
+    <button class="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold">Salva e vai a “Upload & Genera”</button>
+    <a href="/compose" class="px-4 py-2 rounded-lg border font-semibold">Salta</a>
+  </div>
+</form>
 {% endblock %}
