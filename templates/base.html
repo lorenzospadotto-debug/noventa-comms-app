@@ -76,19 +76,6 @@
     </div>
   </div>
 
-  <script>
-    function showOverlay(){ document.getElementById('overlay').classList.add('show'); }
-    // Accessibilità: preferenza dimensione testo locale
-    const htmlEl = document.documentElement;
-    const saved = localStorage.getItem('voxup-fontsize');
-    if (saved) htmlEl.style.fontSize = saved;
-    addEventListener('DOMContentLoaded', () => {
-      const dec = document.getElementById('font-dec');
-      const inc = document.getElementById('font-inc');
-      function set(size){ htmlEl.style.fontSize = size; localStorage.setItem('voxup-fontsize', size); }
-      if (dec) dec.addEventListener('click', () => set('15px'));
-      if (inc) inc.addEventListener('click', () => set('18px'));
-    });
-  </script>
+  <script src="/static/main.js"></script>
 </body>
 </html>
