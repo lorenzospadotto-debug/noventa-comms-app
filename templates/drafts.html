@@ -1,23 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
-<h1 class="text-2xl font-bold">Bozze recenti</h1>
-<p class="text-gray-600">Ultime 20 generazioni salvate in locale.</p>
-
-<div class="mt-6 space-y-4">
-  {% if drafts|length == 0 %}
-    <div class="p-4 border rounded bg-white text-gray-600">Nessuna bozza ancora.</div>
-  {% endif %}
+<h1 class="text-2xl font-semibold mb-4">Bozze recenti</h1>
+<div class="space-y-3">
   {% for d in drafts %}
-    <div class="p-4 border rounded bg-white">
-      <div class="text-sm text-gray-500">{{ d.ts }}</div>
-      <pre class="mt-2 text-sm whitespace-pre-wrap">{{ d.input.text }}</pre>
-      {% if d.results %}
-        <details class="mt-2">
-          <summary class="cursor-pointer">Vedi risultati</summary>
-          <pre class="mt-2 text-sm whitespace-pre-wrap">{{ d.results | tojson(indent=2) }}</pre>
-        </details>
-      {% endif %}
-    </div>
+  <div class="border rounded p-3 bg-card">
+    <div class="text-xs text-slate-500">{{ d.ts }}</div>
+    <pre class="whitespace-pre-wrap text-sm">{{ d.results }}</pre>
+  </div>
+  {% else %}
+  <div>Nessuna bozza ancora.</div>
   {% endfor %}
 </div>
 {% endblock %}
