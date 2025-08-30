@@ -25,13 +25,11 @@ if (dropzone && fileInput) {
   }));
   dropzone.addEventListener('drop', (e) => {
     const files = Array.from(e.dataTransfer.files || []);
-    // Mantieni selezione nel campo input
     const dt = new DataTransfer();
     Array.from(fileInput.files || []).forEach(f => dt.items.add(f));
     files.forEach(f => dt.items.add(f));
     fileInput.files = dt.files;
 
-    // Anteprime locali (solo txt/md per non appesantire)
     if (localPrev) {
       localPrev.innerHTML = '';
       files.forEach(file => {
@@ -57,3 +55,24 @@ if (dropzone && fileInput) {
     }
   });
 }
+
+// Ticker Notizie (in fondo pagina)
+async function loadNewsTicker(){
+  const el = document.getElementById('news-ticker');
+  if(!el) return;
+  try{
+    const res = await fetch('/news.json');
+    const items = await res.json();
+    if(!Array.isArray(items)) return;
+    let i = 0;
+    const render = () => {
+      if(items.length === 0) return;
+      const it = items[i % items.length];
+      el.innerHTML = `<a class="hover:underline" href="${it.link}" target="_blank" rel="noopener">• [${it.source}] ${it.title}</a>`;
+      i++;
+    };
+    render();
+    setInterval(render, 6000);
+  }catch(e){}
+}
+document.addEventListener('DOMContentLoaded', loadNewsTicker);
