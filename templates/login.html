@@ -1,21 +1,17 @@
-{% extends "base.html" %}
-{% block content %}
-<h1 class="text-2xl font-bold">Accedi</h1>
-<p class="text-gray-600 mt-1">Entra con email e password.</p>
-
-<form method="post" action="/login" class="mt-6 space-y-4" onsubmit="showOverlay()">
-  <label class="block">
-    <span class="text-sm font-medium">Email</span>
-    <input type="email" name="email" required class="mt-1 w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-indigo-600">
-  </label>
-  <label class="block">
-    <span class="text-sm font-medium">Password</span>
-    <input type="password" name="password" required class="mt-1 w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-indigo-600">
-  </label>
-  {% if error %}<div class="text-red-600 text-sm">{{ error }}</div>{% endif %}
-  <div class="flex items-center gap-3">
-    <button class="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold">Accedi</button>
-    <a class="text-sm underline" href="/register">Non hai un account? Registrati</a>
-  </div>
-</form>
-{% endblock %}
+<!doctype html><meta charset="utf-8">
+<link href="/static/tailwind.css" rel="stylesheet"><link href="/static/styles.css" rel="stylesheet">
+<div class="min-h-screen flex items-center justify-center bg-surface">
+  <form method="post" action="/login" class="bg-card p-6 rounded shadow w-full max-w-sm border">
+    <div class="flex items-center gap-3 mb-4">
+      <img src="/static/logo.png" class="w-10 h-10" alt="">
+      <h1 class="text-xl font-semibold text-primary">VoxUp</h1>
+    </div>
+    {% if error %}<div class="mb-3 text-red-600">{{ error }}</div>{% endif %}
+    <label class="block mb-2 text-sm">Email</label>
+    <input name="email" type="email" class="w-full border rounded p-2 mb-3" required>
+    <label class="block mb-2 text-sm">Password</label>
+    <input name="password" type="password" class="w-full border rounded p-2 mb-4" required>
+    <button class="w-full text-white rounded py-2" style="background:var(--primary)">Entra</button>
+    <div class="text-sm mt-3">Non hai un account? <a href="/register" class="underline">Registrati</a></div>
+  </form>
+</div>
