@@ -1,28 +1,28 @@
 {% extends "base.html" %}
 {% block content %}
-<h1 class="text-2xl font-bold">Blocco note</h1>
-<p class="text-gray-600">Segnati idee, promemoria, numeri… rimangono sul dispositivo/istanza.</p>
+<h1 class="text-2xl font-semibold mb-4">Blocco note</h1>
 
-<form method="post" action="/notes/add" class="mt-6 grid gap-3" onsubmit="showOverlay()">
-  <input type="text" name="title" placeholder="Titolo (opzionale)" class="w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-indigo-600">
-  <textarea name="body" rows="4" placeholder="Scrivi qui…" class="w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-indigo-600"></textarea>
-  <div><button class="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold">Aggiungi nota</button></div>
+<form method="post" action="/notes/add" class="mb-6">
+  <div class="grid md:grid-cols-3 gap-3">
+    <input name="title" placeholder="Titolo" class="border rounded p-2">
+    <textarea name="body" rows="2" placeholder="Scrivi qui..." class="border rounded p-2 md:col-span-2"></textarea>
+  </div>
+  <button class="mt-2 px-4 py-2 bg-primary text-white rounded" style="background:var(--primary)">Aggiungi</button>
 </form>
 
-<div class="mt-8 space-y-3">
-  {% if notes|length == 0 %}
-  <div class="p-4 border rounded bg-white text-gray-600">Nessuna nota ancora.</div>
-  {% endif %}
+<div class="space-y-3">
   {% for n in notes %}
-  <div class="p-4 border rounded bg-white">
-    <div class="text-sm text-gray-500">{{ n.ts }}</div>
+  <div class="border rounded p-3 bg-card">
+    <div class="text-xs text-slate-500">{{ n.ts }}</div>
     <div class="font-semibold">{{ n.title }}</div>
-    <pre class="whitespace-pre-wrap text-sm mt-1">{{ n.body }}</pre>
-    <form class="mt-2" method="post" action="/notes/delete" onsubmit="showOverlay()">
+    <div class="whitespace-pre-wrap text-sm">{{ n.body }}</div>
+    <form method="post" action="/notes/delete" class="mt-2">
       <input type="hidden" name="note_id" value="{{ n.id }}">
-      <button class="px-3 py-1 border rounded text-sm">Elimina</button>
+      <button class="px-2 py-1 border rounded">Elimina</button>
     </form>
   </div>
+  {% else %}
+  <div>Nessuna nota ancora.</div>
   {% endfor %}
 </div>
 {% endblock %}
