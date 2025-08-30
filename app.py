@@ -18,7 +18,7 @@ from io import BytesIO
 from docx import Document
 from PyPDF2 import PdfReader
 
-# Password hashing (puro Python)
+# Password hashing
 from passlib.hash import pbkdf2_sha256
 
 # OpenAI (opzionale)
@@ -34,6 +34,11 @@ else:
 
 APP_NAME = "VoxUp"
 SECRET_KEY = os.getenv("SECRET_KEY", "change-me-please-very-long-secret")
+
+# Limiti upload (configurabile via env)
+MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "20"))        # limite totale request
+MAX_FILE_MB = int(os.getenv("MAX_FILE_MB", "15"))            # limite per singolo file
+PDF_PAGE_LIMIT = int(os.getenv("PDF_PAGE_LIMIT", "10"))      # pagine lette per PDF
 
 # ----------------------------
 # Cartelle dati & DB
@@ -105,7 +110,7 @@ templates = Jinja2Templates(directory="templates")
 # ----------------------------
 def ensure_session_defaults(session: Dict[str, Any]) -> None:
     session.setdefault("auth", False)
-    session.setdefault("user", None)  # può essere None
+    session.setdefault("user", None)
     session.setdefault("onboarding_done", False)
     session.setdefault("profile", {
         "first_name": "",
@@ -140,7 +145,6 @@ def remove_emojis(text: str) -> str:
     return EMOJI_PATTERN.sub("", text)
 
 def format_for_channel(base_text: str, channel: str) -> str:
-    """Social = bold Unicode; Sito/Stampa = <strong> senza emoji."""
     if channel.lower() == "social":
         return unicode_bold(base_text)
     else:
@@ -151,7 +155,7 @@ def format_for_channel(base_text: str, channel: str) -> str:
         return f"<strong>{no_emoji}</strong>"
 
 def extract_text_from_upload(filename: str, data: bytes) -> str:
-    """Supporta .txt/.md, .pdf, .docx (estrazione semplice)."""
+    """Supporta .txt/.md, .pdf, .docx con error handling robusto."""
     name = filename.lower()
     if name.endswith((".txt", ".md")):
         try:
@@ -162,7 +166,8 @@ def extract_text_from_upload(filename: str, data: bytes) -> str:
         try:
             reader = PdfReader(BytesIO(data))
             parts = []
-            for page in reader.pages[:20]:
+            for i, page in enumerate(reader.pages):
+                if i >= PDF_PAGE_LIMIT: break
                 text = page.extract_text() or ""
                 parts.append(text)
             return "\n".join(parts).strip()
@@ -205,7 +210,6 @@ def split_into_posts(text: str, limit: int = 280) -> List[str]:
     return chunks
 
 def save_draft(entry: Dict[str, Any]) -> None:
-    """Aggiunge una bozza su file JSON, max 50 elementi."""
     try:
         with open(DRAFTS_PATH, "r", encoding="utf-8") as f:
             arr = json.load(f)
@@ -219,8 +223,23 @@ def save_draft(entry: Dict[str, Any]) -> None:
     except Exception:
         pass
 
+# Lettura sicura a chunk per UploadFile
+async def read_limited(upload: UploadFile, byte_limit: int) -> bytes:
+    CHUNK = 1024 * 1024  # 1MB
+    received = 0
+    buf = bytearray()
+    while True:
+        chunk = await upload.read(CHUNK)
+        if not chunk:
+            break
+        received += len(chunk)
+        if received > byte_limit:
+            raise ValueError("file_too_large")
+        buf.extend(chunk)
+    return bytes(buf)
+
 # ----------------------------
-# AI: rielaborazione vera (con fallback)
+# AI: rielaborazione (con fallback)
 # ----------------------------
 def build_ai_prompt(base_context: str, profile: Dict[str, Any], style_guide: str) -> Tuple[str, str]:
     full_name = f"{profile.get('first_name','').strip()} {profile.get('last_name','').strip()}".strip()
@@ -230,45 +249,37 @@ def build_ai_prompt(base_context: str, profile: Dict[str, Any], style_guide: str
     tono_testo = ", ".join([t for t in tones if t] + ([tone_other] if tone_other else [])) or "istituzionale"
     sys = (
         "Sei un addetto stampa politico italiano. "
-        "Rielabora i contenuti in un testo chiaro, sintetico e coerente con il ruolo indicato. "
-        "Non inventare fatti. Mantieni un tono adatto ai 'toni' richiesti."
+        "Rielabora i contenuti in un testo chiaro, sintetico, verificabile. "
+        "Non inventare fatti. Mantieni i 'toni' richiesti."
     )
     usr = (
         f"Ruolo: {role}\n"
         f"Nome: {full_name}\n"
         f"Toni: {tono_testo}\n"
-        f"Stile guida (estratto, se presente): {style_guide[:600]}\n\n"
+        f"Stile guida (estratto): {style_guide[:600]}\n\n"
         f"Contesto da rielaborare:\n{base_context[:6000]}"
-        "\n\nScrivi un comunicato breve di 6-10 frasi con una citazione in prima persona del politico."
+        "\n\nScrivi un comunicato breve di 6-10 frasi con una citazione del politico."
     )
     return sys, usr
 
 def ai_rewrite_or_fallback(base_context: str, profile: Dict[str, Any], style_guide: str) -> str:
-    """Tenta rielaborazione con OpenAI; se non disponibile, fallback deterministico."""
     try:
         if ai_client:
             sys, usr = build_ai_prompt(base_context, profile, style_guide)
             comp = ai_client.chat.completions.create(
                 model="gpt-4o-mini",
-                messages=[
-                    {"role":"system","content":sys},
-                    {"role":"user","content":usr}
-                ],
-                temperature=0.5,
-                max_tokens=700
+                messages=[{"role":"system","content":sys},{"role":"user","content":usr}],
+                temperature=0.5, max_tokens=700
             )
-            out = comp.choices[0].message.content.strip()
-            return out
+            return comp.choices[0].message.content.strip()
     except Exception:
         pass
-    # Fallback semplice e sicuro (nessuna chiamata esterna)
     full_name = f"{profile.get('first_name','').strip()} {profile.get('last_name','').strip()}".strip()
     role = profile.get("role","").strip()
     return (
-        f"{role} {full_name}: ecco i punti principali.\n"
+        f"{role} {full_name}: punti principali.\n"
         f"- {base_context[:240]}...\n\n"
-        "Dichiarazione: \"Mettiamo al centro cittadini e territori. "
-        "Lavoriamo con serietà e risultati concreti.\""
+        "Dichiarazione: \"Mettiamo al centro cittadini e territori con serietà e risultati.\""
     )
 
 def require_auth(request: Request) -> bool:
@@ -276,32 +287,31 @@ def require_auth(request: Request) -> bool:
     return bool(request.session.get("auth"))
 
 # ----------------------------
-# NEWS: fonti RSS e cache
+# NEWS (RSS) con cache
 # ----------------------------
 FEEDS: Dict[str, str] = {
-    # Italia
     "ANSA": "https://www.ansa.it/sito/ansait_rss.xml",
     "Repubblica": "https://www.repubblica.it/rss/homepage/rss2.0.xml",
     "Corriere": "https://xml2.corriereobjects.it/rss/homepage.xml",
     "Il Sole 24 Ore": "https://www.ilsole24ore.com/rss/italia.xml",
     "AGI": "https://www.agi.it/rss/ultime-notizie.xml",
-    # Internazionali
     "BBC": "http://feeds.bbci.co.uk/news/rss.xml",
     "Reuters": "http://feeds.reuters.com/reuters/topNews",
     "AP": "https://apnews.com/hub/apf-topnews?utm_source=ap_rss&utm_medium=rss&utm_campaign=ap_rss",
     "The Guardian": "https://www.theguardian.com/world/rss",
     "Politico EU": "https://www.politico.eu/feed/"
 }
-
 NEWS_TTL_MIN = 15
 
-def load_news_from_cache() -> Tuple[List[Dict[str, Any]], datetime]:
+def load_news_from_cache():
     try:
         with open(NEWS_CACHE_PATH, "r", encoding="utf-8") as f:
             data = json.load(f)
-        return data.get("items", []), datetime.fromisoformat(data.get("ts"))
+        from datetime import datetime as dt
+        return data.get("items", []), dt.fromisoformat(data.get("ts"))
     except Exception:
-        return [], datetime.min
+        from datetime import datetime as dt
+        return [], dt.min
 
 def save_news_cache(items: List[Dict[str, Any]]) -> None:
     try:
@@ -327,14 +337,12 @@ def fetch_feeds() -> List[Dict[str, Any]]:
                     items.append({"title": title, "link": link, "source": source, "published": published})
         except Exception:
             continue
-    # Dedup by title
-    dedup = {}
+    seen, out = set(), []
     for it in items:
-        key = (it["title"][:140] + it["source"])
-        if key not in dedup:
-            dedup[key] = it
-    # keep top ~60
-    return list(dedup.values())[:60]
+        key = (it["title"][:140], it["source"])
+        if key not in seen:
+            seen.add(key); out.append(it)
+    return out[:60]
 
 def get_news_items() -> List[Dict[str, Any]]:
     cached, ts = load_news_from_cache()
@@ -347,7 +355,26 @@ def get_news_items() -> List[Dict[str, Any]]:
     return cached
 
 # ----------------------------
-# ROUTES: health + HEAD
+# Error handlers — mai 502 “muto”
+# ----------------------------
+@app.exception_handler(Exception)
+async def all_exception_handler(request: Request, exc: Exception):
+    # Mostra pagina gentile invece di far cadere il worker
+    return templates.TemplateResponse(
+        "compose.html",
+        {
+            "request": request,
+            "app_name": APP_NAME,
+            "profile": request.session.get("profile", {}),
+            "results": None,
+            "file_previews": [],
+            "errors": [f"Errore inatteso: {type(exc).__name__}"]
+        },
+        status_code=500
+    )
+
+# ----------------------------
+# HEAD/health
 # ----------------------------
 @app.head("/")
 def head_root():
@@ -362,7 +389,7 @@ def health():
     return {"status": "ok", "app": APP_NAME, "data_dir": DATA_DIR}
 
 # ----------------------------
-# AUTH: register / login / logout
+# AUTH
 # ----------------------------
 @app.get("/register", response_class=HTMLResponse)
 def register_page(request: Request):
@@ -385,7 +412,7 @@ def register_submit(
         return templates.TemplateResponse(
             "register.html",
             {"request": request, "app_name": APP_NAME,
-             "error": "Password non valida (min 6 caratteri) o non coincidono."},
+             "error": "Password non valida (min 6) o non coincidono."},
             status_code=400
         )
     email = email.strip().lower()
@@ -403,12 +430,10 @@ def register_submit(
     except sqlite3.IntegrityError:
         return templates.TemplateResponse(
             "register.html",
-            {"request": request, "app_name": APP_NAME,
-             "error": "Email già registrata."},
+            {"request": request, "app_name": APP_NAME, "error": "Email già registrata."},
             status_code=400
         )
 
-    # Auto-login dopo registrazione
     request.session["auth"] = True
     request.session["user"] = {"name": name, "email": email, "role": role}
     request.session["profile"] = {
@@ -459,13 +484,12 @@ def logout(request: Request):
     return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
 
 # ----------------------------
-# Onboarding / Pagine app
+# Onboarding
 # ----------------------------
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
     if not require_auth(request):
         return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
-    # Se onboarding completato, non mostrare più il form: vai a compose
     if request.session.get("onboarding_done"):
         return RedirectResponse(url="/compose", status_code=status.HTTP_302_FOUND)
     return templates.TemplateResponse("home.html", {
@@ -499,6 +523,9 @@ def save_onboarding(
     request.session["onboarding_done"] = True
     return RedirectResponse(url="/compose", status_code=status.HTTP_302_FOUND)
 
+# ----------------------------
+# Compose / Generate
+# ----------------------------
 @app.get("/compose", response_class=HTMLResponse)
 def compose_page(request: Request):
     if not require_auth(request):
@@ -528,40 +555,53 @@ async def generate(
     style_guide = request.session.get("style_guide", "")
     add_ai = profile.get("add_ai", False)
 
-    bodies: List[str] = []
     errors: List[str] = []
+    bodies: List[str] = []
+    file_previews = []
+
+    # 1) Controllo Content-Length (totale request)
+    try:
+        clen = int(request.headers.get("content-length") or "0")
+        if clen > MAX_UPLOAD_MB * 1024 * 1024:
+            errors.append(f"Dimensione totale troppo grande (>{MAX_UPLOAD_MB} MB). Riduci i file.")
+    except Exception:
+        pass
 
     if text_input.strip():
         bodies.append(text_input.strip())
     if url_input.strip():
         bodies.append(f"Fonte: {url_input.strip()}")
 
-    file_previews = []
+    # 2) Lettura file con limiti
     if files:
         for f in files:
             try:
-                raw = await f.read()
-                text = extract_text_from_upload(f.filename, raw)
-                snippet = text[:500] + ("…" if len(text) > 500 else "")
-                if not text:
-                    snippet = "(Anteprima non disponibile: formato non supportato o documento protetto)"
-                file_previews.append({"name": f.filename, "snippet": snippet})
-                if text:
-                    bodies.append(f"File {f.filename}:\n{text[:4000]}")
+                limit_bytes = MAX_FILE_MB * 1024 * 1024
+                raw = await read_limited(f, limit_bytes)
+            except ValueError:
+                errors.append(f"{f.filename}: supera il limite di {MAX_FILE_MB} MB, escluso.")
+                raw = b""
             except Exception as ex:
-                errors.append(f"Errore lettura file {f.filename}: {str(ex)[:120]}")
-                file_previews.append({"name": f.filename, "snippet": "(Errore in lettura)"})
+                errors.append(f"{f.filename}: errore in lettura: {str(ex)[:120]}")
+                raw = b""
+
+            text = extract_text_from_upload(f.filename, raw) if raw else ""
+            snippet = text[:500] + ("…" if len(text) > 500 else "")
+            if not text and raw:
+                snippet = "(Anteprima non disponibile: formato non supportato o PDF/Docx protetto)"
+            if not raw:
+                snippet = "(File non elaborato)"
+
+            file_previews.append({"name": f.filename, "snippet": snippet})
+            if text:
+                bodies.append(f"File {f.filename}:\n{text[:4000]}")
 
     base_context = "\n\n".join(bodies).strip()
     if not base_context:
         base_context = "Nessun testo inserito. Aggiungi un testo, un URL o allega dei file."
 
-    # Punto 2: rielaborazione AI vera (se attiva in Profilo); altrimenti copia “grezza”
-    if add_ai:
-        rewritten = ai_rewrite_or_fallback(base_context, profile, style_guide)
-        working_text = rewritten
-    else:
-        working_text = base_context
+    # 3) Rielaborazione AI (se attiva)
+    working_text = ai_rewrite_or_fallback(base_context, profile, style_guide) if add_ai else base_context
 
     channels = profile.get("channels", ["Social"])
     results: Dict[str, Any] = {}
@@ -591,6 +631,9 @@ async def generate(
         "errors": errors
     })
 
+# ----------------------------
+# Export
+# ----------------------------
 @app.get("/export")
 def export_result(request: Request, channel: str = Query(...), fmt: str = Query(...)):
     if not require_auth(request):
@@ -733,7 +776,7 @@ def news_page(request: Request):
     })
 
 # ----------------------------
-# Blocco Note
+# Blocco note
 # ----------------------------
 @app.get("/notes", response_class=HTMLResponse)
 def notes_page(request: Request):
