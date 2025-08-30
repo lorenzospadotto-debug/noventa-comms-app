@@ -1,99 +1,122 @@
 {% extends "base.html" %}
 {% block content %}
-<h1 class="text-2xl font-bold">Carica o incolla, poi genera</h1>
-{% set ai = profile.add_ai %}
-{% if ai %}
-  <div class="mt-2 p-3 border rounded bg-green-50 text-green-800 text-sm">AI attiva: i testi verranno rielaborati automaticamente (se possibile).</div>
-{% endif %}
+<h1 class="text-2xl font-semibold mb-4">Carica o incolla, poi genera</h1>
 
-<form method="post" action="/generate" enctype="multipart/form-data" class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6" onsubmit="showOverlay()">
-  <div class="space-y-4">
-    <label class="block">
-      <span class="text-sm font-medium">Incolla qui un testo (opzionale). Usa <strong>grassetto</strong> e emoji.</span>
-      <textarea name="text_input" rows="8" class="mt-1 w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-indigo-600" placeholder="Incolla qui..."></textarea>
-    </label>
+<form method="post" action="/generate" enctype="multipart/form-data" onsubmit="showOverlay()"
+      class="grid md:grid-cols-2 gap-6">
+  <div>
+    <label for="text_input" class="block text-sm font-medium mb-1">Incolla qui un testo (opzionale). Usa <strong>grassetto</strong> e emoji.</label>
+    <textarea id="text_input" name="text_input" rows="8" class="w-full border rounded p-3" placeholder="Incolla qui..."></textarea>
 
-    <label class="block">
-      <span class="text-sm font-medium">Oppure link di articolo</span>
-      <input type="url" name="url_input" placeholder="https://…" class="mt-1 w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-indigo-600">
-    </label>
+    <label for="url_input" class="block text-sm font-medium mt-4 mb-1">Oppure link di articolo</label>
+    <input id="url_input" name="url_input" type="url" class="w-full border rounded p-3" placeholder="https://...">
 
-    <div class="border-2 border-dashed rounded-lg p-6 text-center" id="dropzone" aria-live="polite">
-      <p>Trascina qui uno o più file (PDF, DOCX, TXT) oppure clicca</p>
-      <input id="file-input" type="file" name="files" multiple class="mt-3">
-      <div id="local-previews" class="mt-4 text-left text-sm text-gray-600"></div>
+    <div class="mt-4 border-2 border-dashed rounded p-4">
+      <div class="text-sm text-gray-600 mb-2">Trascina qui uno o più file (PDF, DOCX, TXT) oppure clicca</div>
+      <input type="file" id="files" name="files" multiple class="block">
+      <div id="previews" class="mt-2 space-y-2 text-sm" aria-live="polite"></div>
     </div>
 
-    <label class="inline-flex items-center gap-2 mt-2">
-      <input type="checkbox" name="split_x">
+    <label class="flex items-center gap-2 mt-3">
+      <input type="checkbox" name="split_x" id="split_x">
       <span>Dividi automaticamente in thread da 280 per X</span>
     </label>
 
-    <div class="flex gap-3 mt-2">
-      <button class="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold">Genera anteprime</button>
-      <a href="/" class="px-4 py-2 rounded-lg border font-semibold">Torna all'inizio</a>
-    </div>
+    <button class="mt-4 px-4 py-2 bg-indigo-600 text-white rounded">Genera anteprime</button>
+    <a href="/" class="ml-2 px-4 py-2 bg-gray-100 rounded">Torna all'inizio</a>
 
-    {% if errors and errors|length>0 %}
-    <div class="p-3 border rounded bg-red-50 text-red-800 text-sm">
-      <div class="font-semibold mb-1">Problemi durante l'upload/lettura file:</div>
-      <ul class="list-disc ml-5">
-        {% for e in errors %}<li>{{ e }}</li>{% endfor %}
-      </ul>
-    </div>
-    {% endif %}
+    <p class="text-xs text-gray-500 mt-3">
+      Modalità AI: <strong>
+      {% if (request.session.get('profile') or {}).get('add_ai') %}ATTIVA{% else %}SPENTA{% endif %}
+      </strong>
+      {% if not (request.session.get('profile') or {}).get('add_ai') and not (request.session.get('style_guide') or '') %}
+        — attiva in <a class="underline" href="/profile">Profilo</a>.
+      {% endif %}
+    </p>
   </div>
 
-  <div class="space-y-4">
-    {% if not results %}
-      <div class="p-4 rounded-lg bg-white border text-gray-600">Nessuna anteprima ancora. Incolla testo, link o trascina uno o più file.</div>
-    {% endif %}
-
-    {% if file_previews and file_previews|length > 0 %}
-    <div class="p-4 rounded-lg bg-white border">
-      <h2 class="font-semibold mb-2">Anteprima contenuti caricati</h2>
-      <div class="space-y-3 max-h-64 overflow-auto" aria-live="polite">
-        {% for f in file_previews %}
-          <div class="p-3 rounded border">
-            <div class="font-mono text-sm text-gray-700">{{ f.name }}</div>
-            <pre class="whitespace-pre-wrap text-sm text-gray-700">{{ f.snippet }}</pre>
-          </div>
-        {% endfor %}
+  <div>
+    {% if errors and errors|length>0 %}
+      <div class="bg-red-50 border border-red-200 text-red-800 p-3 rounded mb-4">
+        {% for e in errors %}<div>• {{ e }}</div>{% endfor %}
       </div>
-    </div>
     {% endif %}
 
-    {% if results %}
-      {% for channel, content in results.items() %}
-      <div class="p-4 rounded-lg bg-white border">
-        <div class="flex items-center justify-between">
-          <h2 class="font-semibold text-lg">{{ channel }}</h2>
-          <div class="flex gap-2">
-            <button type="button" class="px-3 py-1 border rounded" onclick="copyBlock(this)">Copia</button>
-            <a class="px-3 py-1 border rounded" href="/export?channel={{ channel }}&fmt=txt">.txt</a>
-            <a class="px-3 py-1 border rounded" href="/export?channel={{ channel }}&fmt=html">.html</a>
-            {% if channel == 'Stampa' %}<a class="px-3 py-1 border rounded" href="/export?channel={{ channel }}&fmt=docx">.docx</a>{% endif %}
-          </div>
-        </div>
-
-        {% if content is string %}
-          <div class="mt-3" data-copy-target="1">
-            {% if channel == 'Social' %}
-              <pre class="whitespace-pre-wrap text-sm">{{ content }}</pre>
-            {% else %}
-              <div class="prose prose-sm max-w-none">{{ content | safe }}</div>
-            {% endif %}
-          </div>
+    <div class="mb-4">
+      <div class="text-sm font-semibold mb-1">Anteprima contenuti caricati</div>
+      <div class="border rounded p-3 text-sm bg-white">
+        {% if file_previews and file_previews|length>0 %}
+          {% for f in file_previews %}
+            <div class="mb-3">
+              <div class="font-medium">{{ f.name }}</div>
+              <pre class="whitespace-pre-wrap">{{ f.snippet }}</pre>
+            </div>
+          {% endfor %}
         {% else %}
-          <div class="mt-3 space-y-3" data-copy-target="1">
-            {% for p in content %}
-              <div class="p-2 rounded border bg-gray-50 text-sm">{{ p }}</div>
-            {% endfor %}
-          </div>
+          (File non elaborato)
         {% endif %}
       </div>
+    </div>
+
+    {% if results %}
+      {% for ch, content in results.items() %}
+        <div class="mb-4 border rounded p-3 bg-white">
+          <div class="flex items-center justify-between mb-2">
+            <h2 class="font-semibold">{{ ch }}</h2>
+            <div class="space-x-2">
+              <a class="px-2 py-1 border rounded" href="/export?channel={{ ch }}&fmt=txt">.txt</a>
+              <a class="px-2 py-1 border rounded" href="/export?channel={{ ch }}&fmt=html">.html</a>
+              {% if ch == "Stampa" %}
+                <a class="px-2 py-1 border rounded" href="/export?channel={{ ch }}&fmt=docx">.docx</a>
+              {% endif %}
+            </div>
+          </div>
+          {% if content is sequence and content is not string %}
+            <ul class="list-disc pl-5">
+              {% for item in content %}<li>{{ item }}</li>{% endfor %}
+            </ul>
+          {% else %}
+            <div class="prose max-w-none">
+              {{ content | safe }}
+            </div>
+          {% endif %}
+        </div>
       {% endfor %}
     {% endif %}
   </div>
 </form>
+
+<script>
+  // Anteprima rapida lato client (solo nomi)
+  const input = document.getElementById('files');
+  const previews = document.getElementById('previews');
+
+  function renderPreviews(files){
+    previews.innerHTML = "";
+    Array.from(files).forEach(f => {
+      const div = document.createElement('div');
+      div.className = "border rounded p-2 bg-white";
+      div.textContent = f.name + " (pronto per l'invio)";
+      previews.appendChild(div);
+    });
+  }
+
+  input.addEventListener('change', e => renderPreviews(e.target.files));
+
+  // Supporto drag&drop sul container dashed
+  const dashed = input.parentElement;
+  dashed.addEventListener('dragover', e => { e.preventDefault(); dashed.classList.add('ring-2','ring-indigo-400'); });
+  dashed.addEventListener('dragleave', () => dashed.classList.remove('ring-2','ring-indigo-400'));
+  dashed.addEventListener('drop', e => {
+    e.preventDefault(); dashed.classList.remove('ring-2','ring-indigo-400');
+    if (e.dataTransfer.files.length){
+      const dt = new DataTransfer();
+      Array.from(e.dataTransfer.files).forEach(f => dt.items.add(f));
+      input.files = dt.files;                    // IMPORTANTE: li mettiamo nell'input per il submit
+      renderPreviews(input.files);
+    }
+  });
+
+  function showOverlay(){document.getElementById('overlay')?.classList.remove('hidden')}
+</script>
 {% endblock %}
