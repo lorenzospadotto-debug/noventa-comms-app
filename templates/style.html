@@ -1,14 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
-  <section class="card max-w-3xl">
-    <h2 class="text-lg font-semibold mb-3">Aiutaci a imitare il tuo stile</h2>
-    <p class="text-slate-600 mb-3 text-sm">Incolla una o più dichiarazioni passate, comunicati o post che ti rappresentano. L’AI li userà come riferimento.</p>
-    <form method="post" class="space-y-3" @submit="loading=true">
-      <textarea name="style_examples" rows="12" class="input" placeholder="Incolla qui testi che ti rappresentano…">{{ settings.style_examples or "" }}</textarea>
-      <div class="flex gap-2">
-        <button class="btn-primary" type="submit">Salva stile</button>
-        <a class="btn-secondary" href="/compose">Vai a Upload & Genera</a>
-      </div>
-    </form>
-  </section>
+<h1 class="text-2xl font-bold">Stile guida</h1>
+<p class="text-gray-600">Incolla dichiarazioni passate o note di stile. Le useremo come guida.</p>
+
+<form method="post" action="/style" class="mt-6 space-y-4" onsubmit="showOverlay()">
+  <textarea name="style_guide" rows="10" class="w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-indigo-600">{{ style_guide }}</textarea>
+  <button class="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold">Salva</button>
+</form>
 {% endblock %}
