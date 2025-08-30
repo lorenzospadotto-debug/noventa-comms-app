@@ -1,65 +1,26 @@
 {% extends "base.html" %}
 {% block content %}
-<h1 class="text-2xl font-bold">Onboarding (4 passi)</h1>
-<p class="text-gray-600">Compila una volta, poi si auto-ricorda. Dopo il salvataggio l’onboarding sparirà dal menu.</p>
-
-<form action="/save_onboarding" method="post" class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6" onsubmit="showOverlay()">
-  <div>
-    <label class="block">
-      <span class="text-sm font-medium">Nome</span>
-      <input type="text" name="first_name" value="{{ profile.first_name }}" class="mt-1 w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-indigo-600">
-    </label>
-  </div>
-  <div>
-    <label class="block">
-      <span class="text-sm font-medium">Cognome</span>
-      <input type="text" name="last_name" value="{{ profile.last_name }}" class="mt-1 w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-indigo-600">
-    </label>
-  </div>
-  <div class="md:col-span-2">
-    <label class="block">
-      <span class="text-sm font-medium">Ruolo (es. Sindaco, Assessore)</span>
-      <input type="text" name="role" value="{{ profile.role }}" class="mt-1 w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-indigo-600">
-    </label>
-  </div>
-
-  <div>
-    <span class="text-sm font-medium">Toni (scegli più opzioni)</span>
-    <div class="mt-2 grid grid-cols-2 gap-2">
-      {% set tones = profile.tones or [] %}
-      {% for t in ['Istituzionale','Empatico','Determinato','Tecnico','Inclusivo','Pragmatico','Trasparente','Ottimista','Energico','Sobrio','Visionario','Moderato','Riformista','Ambientalista','Europeista','Garantista','Severo','Conciliante'] %}
-      <label class="flex items-center gap-2">
-        <input type="checkbox" name="tones" value="{{ t }}" {% if t in tones %}checked{% endif %}>
-        <span>{{ t }}</span>
-      </label>
+<h1 class="text-2xl font-semibold mb-4">Benvenuto! Completa il profilo</h1>
+<form method="post" action="/save_onboarding" class="grid md:grid-cols-2 gap-6" onsubmit="showOverlay()">
+  <div class="space-y-3">
+    <label class="block"><span class="text-sm">Nome</span><input name="first_name" class="w-full border rounded p-2" value="{{ (profile or {}).get('first_name','') }}"></label>
+    <label class="block"><span class="text-sm">Cognome</span><input name="last_name" class="w-full border rounded p-2" value="{{ (profile or {}).get('last_name','') }}"></label>
+    <label class="block"><span class="text-sm">Ruolo</span><input name="role" class="w-full border rounded p-2" value="{{ (profile or {}).get('role','') }}"></label>
+    <label class="block"><span class="text-sm">Ente</span><input name="ente" class="w-full border rounded p-2" value="{{ (profile or {}).get('ente','') }}"></label>
+    <fieldset class="border rounded p-3">
+      <legend class="text-sm">Seleziona alcuni toni</legend>
+      {% for t in ["istituzionale","empatico","determinato","pragmatico","vicino alla popolazione"] %}
+      <label class="block"><input type="checkbox" name="tones" value="{{ t }}"> {{ t }}</label>
       {% endfor %}
-    </div>
-  </div>
-
-  <div>
-    <span class="text-sm font-medium">Canali</span>
-    <div class="mt-2 grid grid-cols-2 gap-2">
-      {% set channels = profile.channels or ['Social'] %}
-      {% for c in ['Social','Sito','Stampa'] %}
-      <label class="flex items-center gap-2">
-        <input type="checkbox" name="channels" value="{{ c }}" {% if c in channels %}checked{% endif %}>
-        <span>{{ c }}</span>
-      </label>
-      {% endfor %}
-    </div>
-  </div>
-
-  <div class="md:col-span-2">
-    <label class="block">
-      <span class="text-sm font-medium">Altro (tono personalizzato)</span>
-      <input type="text" name="tone_other" value="{{ profile.tone_other }}" placeholder="Es.: vorrei scrivessi come un sindaco vicino alla popolazione" class="mt-1 w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-indigo-600">
-      <p class="text-xs text-gray-500 mt-1">Esempio: “vorrei scrivessi come un sindaco vicino alla popolazione”.</p>
-    </label>
-  </div>
-
-  <div class="md:col-span-2 flex gap-3">
-    <button class="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold">Salva e vai a “Upload & Genera”</button>
-    <a href="/compose" class="px-4 py-2 rounded-lg border font-semibold">Salta</a>
+      <label class="block mt-2"><span class="text-sm">Altro</span><input name="tone_other" class="w-full border rounded p-2" placeholder="es. sindaco vicino alla popolazione"></label>
+    </fieldset>
+    <fieldset class="border rounded p-3">
+      <legend class="text-sm">Canali</legend>
+      <label class="block"><input type="checkbox" name="channels" value="Social" checked> Social</label>
+      <label class="block"><input type="checkbox" name="channels" value="Sito"> Sito</label>
+      <label class="block"><input type="checkbox" name="channels" value="Stampa"> Stampa</label>
+    </fieldset>
+    <button class="mt-2 px-4 py-2 text-white rounded" style="background:var(--primary)">Vai a Genera</button>
   </div>
 </form>
 {% endblock %}
