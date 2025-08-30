@@ -1,43 +1,23 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="text-2xl font-bold">Bozze recenti</h1>
-<p class="text-gray-600 mt-1">Salvate localmente su /data. Vengono mantenute le ultime 50.</p>
+<p class="text-gray-600">Ultime 20 generazioni salvate in locale.</p>
 
-{% if drafts and drafts|length > 0 %}
-  <div class="mt-6 space-y-4">
-    {% for d in drafts %}
-      <details class="rounded-lg border bg-white p-4">
-        <summary class="cursor-pointer font-medium">
-          {{ d.ts }} — {{ d.profile.first_name }} {{ d.profile.last_name }} ({{ d.profile.role }})
-        </summary>
-        <div class="mt-3 grid md:grid-cols-2 gap-4">
-          <div>
-            <div class="text-sm text-gray-500">Input</div>
-            <pre class="mt-1 text-sm whitespace-pre-wrap">{{ d.input.text }}</pre>
-            {% if d.input.url %}<div class="mt-2 text-sm"><strong>URL:</strong> {{ d.input.url }}</div>{% endif %}
-          </div>
-          <div>
-            <div class="text-sm text-gray-500">Risultati</div>
-            {% for ch, content in d.results.items() %}
-              <div class="mt-2">
-                <div class="font-semibold">{{ ch }}</div>
-                {% if ch == "Social" and content is iterable and content is not string %}
-                  <ol class="list-decimal ml-5">
-                    {% for p in content %}<li class="text-sm"><pre class="whitespace-pre-wrap">{{ p }}</pre></li>{% endfor %}
-                  </ol>
-                {% elif ch == "Social" %}
-                  <pre class="text-sm whitespace-pre-wrap">{{ content }}</pre>
-                {% else %}
-                  <div class="prose max-w-none">{{ content | safe }}</div>
-                {% endif %}
-              </div>
-            {% endfor %}
-          </div>
-        </div>
-      </details>
-    {% endfor %}
-  </div>
-{% else %}
-  <div class="mt-6 p-4 rounded-lg border bg-white text-gray-600">Nessuna bozza salvata ancora.</div>
-{% endif %}
+<div class="mt-6 space-y-4">
+  {% if drafts|length == 0 %}
+    <div class="p-4 border rounded bg-white text-gray-600">Nessuna bozza ancora.</div>
+  {% endif %}
+  {% for d in drafts %}
+    <div class="p-4 border rounded bg-white">
+      <div class="text-sm text-gray-500">{{ d.ts }}</div>
+      <pre class="mt-2 text-sm whitespace-pre-wrap">{{ d.input.text }}</pre>
+      {% if d.results %}
+        <details class="mt-2">
+          <summary class="cursor-pointer">Vedi risultati</summary>
+          <pre class="mt-2 text-sm whitespace-pre-wrap">{{ d.results | tojson(indent=2) }}</pre>
+        </details>
+      {% endif %}
+    </div>
+  {% endfor %}
+</div>
 {% endblock %}
