@@ -1,0 +1,12 @@
+:root{
+  --primary:#0b5fff;       /* usa pure i tuoi colori qui se vuoi */
+  --surface:#f7f9fc;
+  --text:#0f172a;
+  --card:#ffffff;
+}
+.text-primary{color:var(--primary)}
+.bg-surface{background:var(--surface)}
+.bg-card{background:var(--card)}
+.text-text{color:var(--text)}
+.navlink{display:block;padding:.5rem .75rem;border-radius:.5rem}
+.navlink:hover{background:#eef2ff}
