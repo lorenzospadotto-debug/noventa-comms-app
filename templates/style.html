@@ -1,10 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
-<h1 class="text-2xl font-bold">Stile guida</h1>
-<p class="text-gray-600">Incolla dichiarazioni passate o note di stile. Le useremo come guida.</p>
-
-<form method="post" action="/style" class="mt-6 space-y-4" onsubmit="showOverlay()">
-  <textarea name="style_guide" rows="10" class="w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-indigo-600">{{ style_guide }}</textarea>
-  <button class="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold">Salva</button>
+<h1 class="text-2xl font-semibold mb-4">Stile guida</h1>
+<form method="post" action="/style" onsubmit="showOverlay()">
+  <textarea name="style_guide" rows="12" class="w-full border rounded p-3"
+            placeholder="Incolla qui dichiarazioni passate, frasi tipiche...">{{ style_guide }}</textarea>
+  <button class="mt-3 px-4 py-2 bg-primary text-white rounded" style="background:var(--primary)">Salva</button>
 </form>
 {% endblock %}
