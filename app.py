@@ -21,9 +21,10 @@ from PyPDF2 import PdfReader
 # Password hashing (puro Python)
 from passlib.hash import pbkdf2_sha256
 
-APP_NAME = "VoxUp"
 
+APP_NAME = "VoxUp"
 SECRET_KEY = os.getenv("SECRET_KEY", "change-me-please-very-long-secret")
+
 
 # ----------------------------
 # Cartelle dati & DB
@@ -32,7 +33,7 @@ def get_writable_data_dir() -> str:
     cand = []
     if os.getenv("DATA_DIR"):
         cand.append(os.getenv("DATA_DIR"))
-    cand.append("/var/data")  # Render Disk default
+    cand.append("/var/data")  # Render Disk tipico
     cand.append(os.path.join(os.getcwd(), "data"))
     for p in cand:
         try:
@@ -56,10 +57,12 @@ if not os.path.exists(DRAFTS_PATH):
     except Exception:
         pass
 
+
 def db_connect() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
+
 
 def db_init():
     conn = db_connect()
@@ -77,23 +80,25 @@ def db_init():
     conn.commit()
     conn.close()
 
+
 db_init()
+
 
 # ----------------------------
 # App & Templates
 # ----------------------------
 app = FastAPI(title=APP_NAME)
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
-
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+
 
 # ----------------------------
 # Helpers
 # ----------------------------
 def ensure_session_defaults(session: Dict[str, Any]) -> None:
     session.setdefault("auth", False)
-    session.setdefault("user", None)
+    session.setdefault("user", None)  # può essere None
     session.setdefault("profile", {
         "first_name": "",
         "last_name": "",
@@ -103,7 +108,8 @@ def ensure_session_defaults(session: Dict[str, Any]) -> None:
         "add_ai": False
     })
     session.setdefault("style_guide", "")
-    session.setdefault("last_results", {})  # per esportazioni
+    session.setdefault("last_results", {})
+
 
 def unicode_bold(text: str) -> str:
     def _bold_char(c: str) -> str:
@@ -113,19 +119,25 @@ def unicode_bold(text: str) -> str:
         return c
     return "".join(_bold_char(c) for c in text)
 
-EMOJI_PATTERN = re.compile("["                     
+
+EMOJI_PATTERN = re.compile(
+    "["                     
     "\U0001F600-\U0001F64F"
     "\U0001F300-\U0001F5FF"
     "\U0001F680-\U0001F6FF"
     "\U0001F1E0-\U0001F1FF"
     "\u2600-\u26FF"
     "\u2700-\u27BF"
-    "]+", flags=re.UNICODE)
+    "]+", flags=re.UNICODE
+)
+
 
 def remove_emojis(text: str) -> str:
     return EMOJI_PATTERN.sub("", text)
 
+
 def format_for_channel(base_text: str, channel: str) -> str:
+    """Social = bold Unicode; Sito/Stampa = <strong> senza emoji."""
     if channel.lower() == "social":
         return unicode_bold(base_text)
     else:
@@ -135,7 +147,9 @@ def format_for_channel(base_text: str, channel: str) -> str:
             return f"<strong>{head.strip()}:</strong>{tail}"
         return f"<strong>{no_emoji}</strong>"
 
+
 def extract_text_from_upload(filename: str, data: bytes) -> str:
+    """Supporta .txt/.md, .pdf, .docx (estrazione semplice)."""
     name = filename.lower()
     if name.endswith((".txt", ".md")):
         try:
@@ -160,35 +174,44 @@ def extract_text_from_upload(filename: str, data: bytes) -> str:
             return ""
     return ""
 
+
 def split_into_posts(text: str, limit: int = 280) -> List[str]:
     text = text.strip()
-    if not text: return []
+    if not text:
+        return []
     words = text.split()
-    chunks, cur = [], ""
+    chunks: List[str] = []
+    cur = ""
     for w in words:
         candidate = (cur + " " + w).strip() if cur else w
         if len(candidate) <= limit:
             cur = candidate
         else:
-            if cur: chunks.append(cur)
+            if cur:
+                chunks.append(cur)
             if len(w) > limit:
                 while len(w) > limit:
-                    chunks.append(w[:limit]); w = w[limit:]
+                    chunks.append(w[:limit])
+                    w = w[limit:]
                 cur = w
             else:
                 cur = w
-    if cur: chunks.append(cur)
+    if cur:
+        chunks.append(cur)
+
     if len(chunks) > 1:
         total = len(chunks)
-        out = []
-        for i, c in enumerate(chunks, 1):
+        numbered: List[str] = []
+        for i, c in enumerate(chunks, start=1):
             prefix = f"{i}/{total} "
             room = limit - len(prefix)
-            out.append(prefix + (c[:room] if len(c) > room else c))
-        return out
+            numbered.append(prefix + (c[:room] if len(c) > room else c))
+        return numbered
     return chunks
 
+
 def save_draft(entry: Dict[str, Any]) -> None:
+    """Aggiunge una bozza su file JSON, massimo 50 elementi."""
     try:
         with open(DRAFTS_PATH, "r", encoding="utf-8") as f:
             arr = json.load(f)
@@ -202,24 +225,29 @@ def save_draft(entry: Dict[str, Any]) -> None:
     except Exception:
         pass
 
+
 def require_auth(request: Request) -> bool:
     ensure_session_defaults(request.session)
     return bool(request.session.get("auth"))
 
+
 # ----------------------------
-# ROUTES: health + HEAD
+# ROUTES: health + HEAD (per pulire i log Render)
 # ----------------------------
 @app.head("/")
 def head_root():
     return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
 
+
 @app.head("/health")
 def head_health():
     return Response(status_code=200)
 
+
 @app.get("/health")
 def health():
     return {"status": "ok", "app": APP_NAME, "data_dir": DATA_DIR}
+
 
 # ----------------------------
 # AUTH: register / login / logout
@@ -230,6 +258,7 @@ def register_page(request: Request):
     if request.session.get("auth"):
         return RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
     return templates.TemplateResponse("register.html", {"request": request, "app_name": APP_NAME})
+
 
 @app.post("/register")
 def register_submit(
@@ -271,10 +300,9 @@ def register_submit(
     # Auto-login dopo registrazione
     request.session["auth"] = True
     request.session["user"] = {"name": name, "email": email, "role": role}
-    # Inizializza profilo a partire dai dati utente
     request.session["profile"] = {
         "first_name": name.split(" ")[0] if name else "",
-        "last_name": " ".join(name.split(" ")[1:]) if len(name.split(" "))>1 else "",
+        "last_name": " ".join(name.split(" ")[1:]) if len(name.split(" ")) > 1 else "",
         "role": role,
         "tones": [],
         "channels": ["Social"],
@@ -282,12 +310,14 @@ def register_submit(
     }
     return RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
 
+
 @app.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
     ensure_session_defaults(request.session)
     if request.session.get("auth"):
         return RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
     return templates.TemplateResponse("login.html", {"request": request, "app_name": APP_NAME})
+
 
 @app.post("/login")
 def login_submit(request: Request, email: str = Form(...), password: str = Form(...)):
@@ -307,17 +337,19 @@ def login_submit(request: Request, email: str = Form(...), password: str = Form(
 
     request.session["auth"] = True
     request.session["user"] = {"name": row["name"], "email": row["email"], "role": row["role"]}
-    # Se il profilo è vuoto, precompila
+    # Precompila profilo se vuoto
     prof = request.session.get("profile", {})
     if not prof.get("role"):
         prof["role"] = row["role"] or ""
     request.session["profile"] = prof
     return RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
 
+
 @app.get("/logout")
 def logout(request: Request):
     request.session.clear()
     return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+
 
 # ----------------------------
 # Onboarding / Pagine app
@@ -330,8 +362,9 @@ def home(request: Request):
         "request": request,
         "app_name": APP_NAME,
         "profile": request.session.get("profile", {}),
-        "user": request.session.get("user")
+        "user": request.session.get("user") or {}
     })
+
 
 @app.post("/save_onboarding")
 def save_onboarding(
@@ -354,6 +387,7 @@ def save_onboarding(
     request.session["profile"] = profile
     return RedirectResponse(url="/compose", status_code=status.HTTP_302_FOUND)
 
+
 @app.get("/compose", response_class=HTMLResponse)
 def compose_page(request: Request):
     if not require_auth(request):
@@ -362,8 +396,10 @@ def compose_page(request: Request):
         "request": request,
         "app_name": APP_NAME,
         "profile": request.session.get("profile", {}),
-        "results": None
+        "results": None,
+        "file_previews": []
     })
+
 
 @app.post("/generate", response_class=HTMLResponse)
 async def generate(
@@ -382,14 +418,18 @@ async def generate(
     add_ai = profile.get("add_ai", False)
 
     bodies: List[str] = []
-    if text_input.strip(): bodies.append(text_input.strip())
-    if url_input.strip(): bodies.append(f"Fonte: {url_input.strip()}")
+    if text_input.strip():
+        bodies.append(text_input.strip())
+    if url_input.strip():
+        bodies.append(f"Fonte: {url_input.strip()}")
 
     file_previews = []
     if files:
         for f in files:
-            try: raw = await f.read()
-            except Exception: raw = b""
+            try:
+                raw = await f.read()
+            except Exception:
+                raw = b""
             text = extract_text_from_upload(f.filename, raw)
             snippet = text[:500] + ("…" if len(text) > 500 else "")
             if not text:
@@ -441,6 +481,7 @@ async def generate(
         "split_used": do_split
     })
 
+
 @app.get("/export")
 def export_result(request: Request, channel: str = Query(...), fmt: str = Query(...)):
     if not require_auth(request):
@@ -457,7 +498,8 @@ def export_result(request: Request, channel: str = Query(...), fmt: str = Query(
         joined = "\n\n".join(value)
         if fmt == "txt":
             path = os.path.join(DATA_DIR, f"voxup_{safe_name}.txt")
-            with open(path, "w", encoding="utf-8") as f: f.write(joined)
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(joined)
             return FileResponse(path, media_type="text/plain", filename=f"{APP_NAME}_{safe_name}.txt")
         elif fmt == "html":
             html = "<br>".join(value)
@@ -473,7 +515,8 @@ def export_result(request: Request, channel: str = Query(...), fmt: str = Query(
     if fmt == "txt":
         plain = re.sub(r"<[^>]+>", "", content)
         path = os.path.join(DATA_DIR, f"voxup_{safe_name}.txt")
-        with open(path, "w", encoding="utf-8") as f: f.write(plain)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(plain)
         return FileResponse(path, media_type="text/plain", filename=f"{APP_NAME}_{safe_name}.txt")
 
     if fmt == "html":
@@ -486,23 +529,27 @@ def export_result(request: Request, channel: str = Query(...), fmt: str = Query(
     if fmt == "docx" and channel == "Stampa":
         doc = Document()
         plain = re.sub(r"<[^>]+>", "", content)
-        for para in plain.split("\n"): doc.add_paragraph(para)
+        for para in plain.split("\n"):
+            doc.add_paragraph(para)
         tmp = os.path.join(DATA_DIR, f"voxup_{safe_name}.docx")
         doc.save(tmp)
         return FileResponse(tmp,
-            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            filename=f"{APP_NAME}_{safe_name}.docx")
+                            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            filename=f"{APP_NAME}_{safe_name}.docx")
 
     return PlainTextResponse("Formato non supportato.", status_code=400)
+
 
 @app.get("/style", response_class=HTMLResponse)
 def style_page(request: Request):
     if not require_auth(request):
         return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
     return templates.TemplateResponse("style.html", {
-        "request": request, "app_name": APP_NAME,
+        "request": request,
+        "app_name": APP_NAME,
         "style_guide": request.session.get("style_guide", "")
     })
+
 
 @app.post("/style")
 def style_save(request: Request, style_guide: str = Form("")):
@@ -511,15 +558,18 @@ def style_save(request: Request, style_guide: str = Form("")):
     request.session["style_guide"] = style_guide.strip()
     return RedirectResponse(url="/style", status_code=status.HTTP_302_FOUND)
 
+
 @app.get("/profile", response_class=HTMLResponse)
 def profile_page(request: Request):
     if not require_auth(request):
         return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
     return templates.TemplateResponse("profile.html", {
-        "request": request, "app_name": APP_NAME,
+        "request": request,
+        "app_name": APP_NAME,
         "profile": request.session.get("profile", {}),
-        "user": request.session.get("user")
+        "user": request.session.get("user") or {}
     })
+
 
 @app.post("/profile")
 def profile_save(
@@ -544,6 +594,7 @@ def profile_save(
     request.session["profile"] = profile
     return RedirectResponse(url="/profile", status_code=status.HTTP_302_FOUND)
 
+
 @app.get("/drafts", response_class=HTMLResponse)
 def drafts_page(request: Request):
     if not require_auth(request):
@@ -554,5 +605,7 @@ def drafts_page(request: Request):
     except Exception:
         items = []
     return templates.TemplateResponse("drafts.html", {
-        "request": request, "app_name": APP_NAME, "drafts": items[:20]
+        "request": request,
+        "app_name": APP_NAME,
+        "drafts": items[:20]
     })
