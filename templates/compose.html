@@ -6,13 +6,13 @@
       class="grid md:grid-cols-2 gap-6">
   <div>
     <label for="text_input" class="block text-sm font-medium mb-1">Incolla qui un testo (opzionale). Usa <strong>grassetto</strong> e emoji.</label>
-    <textarea id="text_input" name="text_input" rows="8" class="w-full border rounded p-3" placeholder="Incolla qui..."></textarea>
+    <textarea id="text_input" name="text_input" rows="8" class="w-full border rounded p-3" placeholder="Scrivi qui..."></textarea>
 
     <label for="url_input" class="block text-sm font-medium mt-4 mb-1">Oppure link di articolo</label>
     <input id="url_input" name="url_input" type="url" class="w-full border rounded p-3" placeholder="https://...">
 
     <div class="mt-4 border-2 border-dashed rounded p-4">
-      <div class="text-sm text-gray-600 mb-2">Trascina qui uno o più file (PDF, DOCX, TXT) oppure clicca</div>
+      <div class="text-sm text-slate-600 mb-2">Trascina qui uno o più file (PDF, DOCX, TXT) oppure clicca</div>
       <input type="file" id="files" name="files" multiple class="block">
       <div id="previews" class="mt-2 space-y-2 text-sm" aria-live="polite"></div>
     </div>
@@ -22,16 +22,11 @@
       <span>Dividi automaticamente in thread da 280 per X</span>
     </label>
 
-    <button class="mt-4 px-4 py-2 bg-indigo-600 text-white rounded">Genera anteprime</button>
-    <a href="/" class="ml-2 px-4 py-2 bg-gray-100 rounded">Torna all'inizio</a>
+    <button class="mt-4 px-4 py-2 bg-primary text-white rounded" style="background:var(--primary)">Genera anteprime</button>
+    <a href="/" class="ml-2 px-4 py-2 bg-card border rounded">Torna all'inizio</a>
 
-    <p class="text-xs text-gray-500 mt-3">
-      Modalità AI: <strong>
-      {% if (request.session.get('profile') or {}).get('add_ai') %}ATTIVA{% else %}SPENTA{% endif %}
-      </strong>
-      {% if not (request.session.get('profile') or {}).get('add_ai') and not (request.session.get('style_guide') or '') %}
-        — attiva in <a class="underline" href="/profile">Profilo</a>.
-      {% endif %}
+    <p class="text-xs text-slate-500 mt-3">
+      AI: <strong>ATTIVA</strong> — è il cuore dell’app.
     </p>
   </div>
 
@@ -44,7 +39,7 @@
 
     <div class="mb-4">
       <div class="text-sm font-semibold mb-1">Anteprima contenuti caricati</div>
-      <div class="border rounded p-3 text-sm bg-white">
+      <div class="border rounded p-3 text-sm bg-card">
         {% if file_previews and file_previews|length>0 %}
           {% for f in file_previews %}
             <div class="mb-3">
@@ -53,21 +48,21 @@
             </div>
           {% endfor %}
         {% else %}
-          (File non elaborato)
+          (Nessuna anteprima ancora)
         {% endif %}
       </div>
     </div>
 
     {% if results %}
       {% for ch, content in results.items() %}
-        <div class="mb-4 border rounded p-3 bg-white">
+        <div class="mb-4 border rounded p-3 bg-card">
           <div class="flex items-center justify-between mb-2">
             <h2 class="font-semibold">{{ ch }}</h2>
             <div class="space-x-2">
               <a class="px-2 py-1 border rounded" href="/export?channel={{ ch }}&fmt=txt">.txt</a>
               <a class="px-2 py-1 border rounded" href="/export?channel={{ ch }}&fmt=html">.html</a>
               {% if ch == "Stampa" %}
-                <a class="px-2 py-1 border rounded" href="/export?channel={{ ch }}&fmt=docx">.docx</a>
+              <a class="px-2 py-1 border rounded" href="/export?channel={{ ch }}&fmt=docx">.docx</a>
               {% endif %}
             </div>
           </div>
@@ -76,9 +71,7 @@
               {% for item in content %}<li>{{ item }}</li>{% endfor %}
             </ul>
           {% else %}
-            <div class="prose max-w-none">
-              {{ content | safe }}
-            </div>
+            <div class="prose max-w-none">{{ content | safe }}</div>
           {% endif %}
         </div>
       {% endfor %}
@@ -87,36 +80,29 @@
 </form>
 
 <script>
-  // Anteprima rapida lato client (solo nomi)
   const input = document.getElementById('files');
   const previews = document.getElementById('previews');
-
   function renderPreviews(files){
     previews.innerHTML = "";
-    Array.from(files).forEach(f => {
-      const div = document.createElement('div');
-      div.className = "border rounded p-2 bg-white";
-      div.textContent = f.name + " (pronto per l'invio)";
+    Array.from(files).forEach(f=>{
+      const div=document.createElement('div');
+      div.className="border rounded p-2 bg-card";
+      div.textContent=f.name+" (pronto per l'invio)";
       previews.appendChild(div);
     });
   }
-
-  input.addEventListener('change', e => renderPreviews(e.target.files));
-
-  // Supporto drag&drop sul container dashed
+  input.addEventListener('change', e=>renderPreviews(e.target.files));
   const dashed = input.parentElement;
-  dashed.addEventListener('dragover', e => { e.preventDefault(); dashed.classList.add('ring-2','ring-indigo-400'); });
-  dashed.addEventListener('dragleave', () => dashed.classList.remove('ring-2','ring-indigo-400'));
-  dashed.addEventListener('drop', e => {
-    e.preventDefault(); dashed.classList.remove('ring-2','ring-indigo-400');
-    if (e.dataTransfer.files.length){
-      const dt = new DataTransfer();
-      Array.from(e.dataTransfer.files).forEach(f => dt.items.add(f));
-      input.files = dt.files;                    // IMPORTANTE: li mettiamo nell'input per il submit
+  dashed.addEventListener('dragover', e=>{e.preventDefault(); dashed.classList.add('ring-2')});
+  dashed.addEventListener('dragleave', ()=>dashed.classList.remove('ring-2'));
+  dashed.addEventListener('drop', e=>{
+    e.preventDefault(); dashed.classList.remove('ring-2');
+    if(e.dataTransfer.files.length){
+      const dt=new DataTransfer();
+      Array.from(e.dataTransfer.files).forEach(f=>dt.items.add(f));
+      input.files=dt.files;
       renderPreviews(input.files);
     }
   });
-
-  function showOverlay(){document.getElementById('overlay')?.classList.remove('hidden')}
 </script>
 {% endblock %}
