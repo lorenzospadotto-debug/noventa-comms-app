@@ -1,33 +1,25 @@
-{% extends "base.html" %}
-{% block content %}
-<h1 class="text-2xl font-bold">Registrazione</h1>
-<p class="text-gray-600 mt-1">Crea il tuo account per usare VoxUp.</p>
-
-<form method="post" action="/register" class="mt-6 grid gap-4" onsubmit="showOverlay()">
-  <label class="block">
-    <span class="text-sm font-medium">Nome e Cognome</span>
-    <input type="text" name="name" required class="mt-1 w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-indigo-600">
-  </label>
-  <label class="block">
-    <span class="text-sm font-medium">Ruolo (es. Sindaco, Assessore)</span>
-    <input type="text" name="role" class="mt-1 w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-indigo-600">
-  </label>
-  <label class="block">
-    <span class="text-sm font-medium">Email</span>
-    <input type="email" name="email" required class="mt-1 w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-indigo-600">
-  </label>
-  <label class="block">
-    <span class="text-sm font-medium">Password</span>
-    <input type="password" name="password" required minlength="6" class="mt-1 w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-indigo-600">
-  </label>
-  <label class="block">
-    <span class="text-sm font-medium">Conferma Password</span>
-    <input type="password" name="password2" required minlength="6" class="mt-1 w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-indigo-600">
-  </label>
-  {% if error %}<div class="text-red-600 text-sm">{{ error }}</div>{% endif %}
-  <div class="flex items-center gap-3">
-    <button class="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold">Crea account</button>
-    <a class="text-sm underline" href="/login">Hai già un account? Accedi</a>
-  </div>
-</form>
-{% endblock %}
+<!doctype html><meta charset="utf-8">
+<link href="/static/tailwind.css" rel="stylesheet"><link href="/static/styles.css" rel="stylesheet">
+<div class="min-h-screen flex items-center justify-center bg-surface">
+  <form method="post" action="/register" class="bg-card p-6 rounded shadow w-full max-w-sm border">
+    <div class="flex items-center gap-3 mb-4">
+      <img src="/static/logo.png" class="w-10 h-10" alt="">
+      <h1 class="text-xl font-semibold text-primary">Crea account</h1>
+    </div>
+    {% if error %}<div class="mb-3 text-red-600">{{ error }}</div>{% endif %}
+    <label class="block text-sm">Nome e Cognome</label>
+    <input name="name" class="w-full border rounded p-2 mb-3" required>
+    <label class="block text-sm">Email</label>
+    <input name="email" type="email" class="w-full border rounded p-2 mb-3" required>
+    <label class="block text-sm">Ruolo</label>
+    <input name="role" class="w-full border rounded p-2 mb-3">
+    <label class="block text-sm">Ente</label>
+    <input name="ente" class="w-full border rounded p-2 mb-3">
+    <label class="block text-sm">Password</label>
+    <input name="password" type="password" class="w-full border rounded p-2 mb-3" required>
+    <label class="block text-sm">Ripeti Password</label>
+    <input name="password2" type="password" class="w-full border rounded p-2 mb-4" required>
+    <button class="w-full text-white rounded py-2" style="background:var(--primary)">Registrati</button>
+    <div class="text-sm mt-3"><a href="/login" class="underline">Torna al login</a></div>
+  </form>
+</div>
