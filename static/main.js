@@ -1,94 +1,59 @@
-// Spinner overlay
-window.showOverlay = function () {
-  const o = document.getElementById('overlay');
-  if (o) o.classList.add('show');
-};
+function showOverlay(){ document.getElementById('overlay')?.classList.add('show'); }
 
-// Drag & Drop multi-file + anteprime (client-side)
-(function () {
-  const drop = document.getElementById('dropzone');
-  const input = document.getElementById('file-input');
-  const list = document.getElementById('file-list');
-  const btn = document.getElementById('btn-choose');
-  if (!drop || !input || !list) return;
-
-  const renderItem = (file, snippet) => {
-    const el = document.createElement('div');
-    el.className = 'p-3 rounded-lg border bg-white';
-    el.innerHTML = `
-      <div class="font-medium">${file.name}</div>
-      <pre class="mt-2 text-sm whitespace-pre-wrap text-gray-700">${snippet}</pre>
-    `;
-    list.appendChild(el);
-  };
-
-  const readSnippet = (file) => {
-    return new Promise((resolve) => {
-      const ext = (file.name || '').toLowerCase();
-      if (ext.endsWith('.pdf') || ext.endsWith('.docx')) {
-        resolve('(Anteprima veloce: il testo verrà estratto dopo il caricamento)');
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = () => {
-        const text = reader.result ? String(reader.result) : '';
-        resolve(text ? (text.slice(0, 400) + (text.length > 400 ? '…' : '')) : '(Anteprima non disponibile)');
-      };
-      reader.onerror = () => resolve('(Anteprima non disponibile)');
-      reader.readAsText(file);
-    });
-  };
-
-  const handleFiles = async (files) => {
-    if (!files || files.length === 0) return;
-    list.innerHTML = ''; // reset visivo
-    for (const f of files) {
-      if (f.size > 16 * 1024 * 1024) {
-        renderItem(f, '(File grande >16MB: anteprima veloce disattivata, verrà elaborato dopo il caricamento)');
-        continue;
-      }
-      const snip = await readSnippet(f);
-      renderItem(f, snip);
-    }
-  };
-
-  const onOver = (e) => { e.preventDefault(); drop.classList.add('ring-2','ring-indigo-400'); };
-  const onLeave = () => drop.classList.remove('ring-2','ring-indigo-400');
-
-  drop.addEventListener('dragover', onOver);
-  drop.addEventListener('dragleave', onLeave);
-  drop.addEventListener('drop', (e) => {
-    e.preventDefault();
-    onLeave();
-    const files = e.dataTransfer.files;
-    // Collega i file all'input del form (necessario per l'invio)
-    const dt = new DataTransfer();
-    for (const f of files) dt.items.add(f);
-    input.files = dt.files;
-    handleFiles(files);
+function copyBlock(btn){
+  const container = btn.closest('.p-4, .border, .rounded-lg');
+  const target = container?.querySelector('[data-copy-target]');
+  if(!target) return;
+  const text = target.innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'Copiato!';
+    setTimeout(()=> btn.textContent = 'Copia', 1200);
   });
+}
 
-  input.addEventListener('change', (e) => handleFiles(e.target.files));
-  if (btn) btn.addEventListener('click', () => input.click());
-})();
+// Drag & Drop MULTI-FILE con anteprima locale (solo per file testo)
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('file-input');
+const localPrev = document.getElementById('local-previews');
 
-// Accessibilità extra: controllo dimensioni testo A-/A+ (persistente su device)
-(function () {
-  const key = 'voxup-font-scale';
-  const inc = document.getElementById('font-inc');
-  const dec = document.getElementById('font-dec');
-  const apply = (val) => {
-    // scala base 16px; limiti tra 14 e 20
-    const clamped = Math.max(14, Math.min(20, val));
-    document.documentElement.style.fontSize = clamped + 'px';
-    try { localStorage.setItem(key, String(clamped)); } catch {}
-  };
-  let current = 16;
-  try {
-    const saved = parseInt(localStorage.getItem(key) || '16', 10);
-    if (!isNaN(saved)) current = saved;
-  } catch {}
-  apply(current);
-  if (inc) inc.addEventListener('click', () => { current += 1; apply(current); });
-  if (dec) dec.addEventListener('click', () => { current -= 1; apply(current); });
-})();
+if (dropzone && fileInput) {
+  ['dragenter','dragover'].forEach(ev => dropzone.addEventListener(ev, e => {
+    e.preventDefault(); e.stopPropagation(); dropzone.classList.add('ring', 'ring-indigo-400');
+  }));
+  ['dragleave','drop'].forEach(ev => dropzone.addEventListener(ev, e => {
+    e.preventDefault(); e.stopPropagation(); dropzone.classList.remove('ring', 'ring-indigo-400');
+  }));
+  dropzone.addEventListener('drop', (e) => {
+    const files = Array.from(e.dataTransfer.files || []);
+    // Mantieni selezione nel campo input
+    const dt = new DataTransfer();
+    Array.from(fileInput.files || []).forEach(f => dt.items.add(f));
+    files.forEach(f => dt.items.add(f));
+    fileInput.files = dt.files;
+
+    // Anteprime locali (solo txt/md per non appesantire)
+    if (localPrev) {
+      localPrev.innerHTML = '';
+      files.forEach(file => {
+        const wrap = document.createElement('div');
+        wrap.className = 'mt-2 p-2 border rounded';
+        const title = document.createElement('div');
+        title.className = 'font-mono text-sm text-gray-700';
+        title.textContent = file.name;
+        wrap.appendChild(title);
+        if (file.type.startsWith('text/') || file.name.endsWith('.md') || file.name.endsWith('.txt')) {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const pre = document.createElement('pre');
+            pre.className = 'whitespace-pre-wrap text-xs text-gray-700';
+            const t = String(reader.result || '');
+            pre.textContent = t.slice(0, 500) + (t.length > 500 ? '…' : '');
+            wrap.appendChild(pre);
+          };
+          reader.readAsText(file);
+        }
+        localPrev.appendChild(wrap);
+      });
+    }
+  });
+}
